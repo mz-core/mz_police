@@ -38,6 +38,7 @@ AddEventHandler('playerDropped', function()
   if MZPolice.Enforcement then MZPolice.Enforcement.cleanupSource(source, 'player_dropped') end
   if MZPolice.Evidence then MZPolice.Evidence.cleanupSource(source) end
   if MZPolice.Records then MZPolice.Records.cleanupSource(source) end
+  if MZPolice.Prison then MZPolice.Prison.cleanupSource(source) end
 end)
 
 AddEventHandler('onResourceStop', function(resourceName)
@@ -45,6 +46,7 @@ AddEventHandler('onResourceStop', function(resourceName)
   if MZPolice.Search then MZPolice.Search.stop() end
   if MZPolice.Enforcement then MZPolice.Enforcement.stop() end
   if MZPolice.Records then MZPolice.Records.stop() end
+  if MZPolice.Prison then MZPolice.Prison.stop() end
   MZPolice.Custody.stop('resource_stop')
 end)
 

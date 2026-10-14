@@ -219,4 +219,28 @@ function Bridge.settleCitation(targetSource, organization, amount, options)
   return value
 end
 
+function Bridge.requestSentence(actorSource, targetSource, request)
+  local ok, value = callExport('mz_prison', 'RequestSentence', actorSource, targetSource, request)
+  if ok ~= true then return nil, tostring(value or 'sentence_request_failed') end
+  return value
+end
+
+function Bridge.getSentence(citizenid)
+  local ok, value = callExport('mz_prison', 'GetSentence', citizenid)
+  if ok ~= true then return nil, tostring(value or 'sentence_read_failed') end
+  return value
+end
+
+function Bridge.reduceSentence(actorSource, citizenid, request)
+  local ok, value = callExport('mz_prison', 'ReduceSentence', actorSource, citizenid, request)
+  if ok ~= true then return nil, tostring(value or 'sentence_reduction_failed') end
+  return value
+end
+
+function Bridge.releasePrisoner(actorSource, citizenid, request)
+  local ok, value = callExport('mz_prison', 'ReleasePrisoner', actorSource, citizenid, request)
+  if ok ~= true then return nil, tostring(value or 'prison_release_failed') end
+  return value
+end
+
 MZPolice.Bridge = Bridge

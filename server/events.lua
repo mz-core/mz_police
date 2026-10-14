@@ -107,3 +107,19 @@ for eventAction, method in pairs(recordActions) do
     })
   end)
 end
+
+local prisonActions = {
+  requestSentence = 'requestSentence', getSentence = 'getSentence',
+  reduceSentence = 'reduceSentence', releasePrisoner = 'releasePrisoner'
+}
+
+for eventAction, method in pairs(prisonActions) do
+  RegisterNetEvent(('mz_police:server:prison:%s'):format(eventAction))
+  AddEventHandler(('mz_police:server:prison:%s'):format(eventAction), function(payload)
+    local actorSource = source
+    TriggerClientEvent('mz_police:client:prison:result', actorSource, {
+      action = eventAction,
+      response = MZPolice.Prison[method](actorSource, payload)
+    })
+  end)
+end

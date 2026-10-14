@@ -81,5 +81,14 @@ MZPoliceConfig = {
     charges = {},
     citations = {},
     warrants = { enabled = false, rules = {} }
+  },
+
+  Prison = {
+    enabled = false,
+    sentenceCapability = 'police.arrest.request',
+    reviewCapability = 'reports.approve',
+    readCapability = 'mdt.open',
+    maximumDistance = 3.0,
+    rateLimit = { maximum = 6, windowMs = 5000 }
   }
 }

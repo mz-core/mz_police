@@ -4,7 +4,7 @@ game 'gta5'
 name 'mz_police'
 author 'Mazus / MZ Framework'
 description 'Operacoes policiais server-authoritative do MZ Framework'
-version '0.6.0'
+version '0.7.0'
 
 lua54 'yes'
 
@@ -25,6 +25,7 @@ server_scripts {
   'server/enforcement.lua',
   'server/evidence.lua',
   'server/records.lua',
+  'server/prison.lua',
   'server/events.lua',
   'server/main.lua',
   'server/p1_gate.lua'

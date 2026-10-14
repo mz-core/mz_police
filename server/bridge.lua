@@ -185,4 +185,38 @@ function Bridge.transferPoliceEvidence(source, orgCode, fromContainer, toContain
   return value
 end
 
+function Bridge.searchCharacters(search, page, pageSize)
+  local value, callError = callExport('mz_core', 'SearchCharacters', search, page, pageSize)
+  if type(value) ~= 'table' then return nil, callError or 'identity_unavailable' end
+  return value
+end
+
+function Bridge.getCharacterByCitizenId(citizenid)
+  local value, callError = callExport('mz_core', 'GetCharacterByCitizenId', citizenid)
+  if type(value) ~= 'table' then return nil, callError or 'citizen_not_found' end
+  return value
+end
+
+function Bridge.getSourceByCitizenId(citizenid)
+  local value, callError = callExport('mz_core', 'GetSourceByCitizenId', citizenid)
+  if value == nil then return nil, callError or 'target_offline' end
+  value = tonumber(value)
+  if not value or value <= 0 then return nil, 'target_offline' end
+  return value
+end
+
+function Bridge.getOrganization(orgCode)
+  local value, callError = callExport('mz_org', 'GetOrgByCode', orgCode)
+  if type(value) ~= 'table' then return nil, callError or 'organization_not_found' end
+  return value
+end
+
+function Bridge.settleCitation(targetSource, organization, amount, options)
+  local ok, value = callExport(
+    'mz_economy', 'SettlePlayerOrganizationCharge', targetSource, organization, amount, options
+  )
+  if ok ~= true then return nil, tostring(value or 'citation_settlement_failed') end
+  return value
+end
+
 MZPolice.Bridge = Bridge

@@ -151,6 +151,24 @@ function Audit.evidence(action, actor, fields)
   })
 end
 
+function Audit.records(action, actor, fields)
+  fields = type(fields) == 'table' and fields or {}
+  return MZPolice.Bridge.createDetailedLog(('police.records.%s'):format(tostring(action)), {
+    actor = { type = 'character', id = actor.citizenid, citizenid = actor.citizenid },
+    target = fields.targetCitizenid and {
+      type = 'character', id = fields.targetCitizenid, citizenid = fields.targetCitizenid
+    } or fields.entityId and { type = fields.entityType or 'police_record', id = fields.entityId } or nil,
+    context = {
+      orgCode = fields.orgCode, operationId = fields.operationId,
+      caseId = fields.caseId, capability = fields.capability
+    },
+    meta = {
+      result = fields.result, reason = fields.reason,
+      ruleCode = fields.ruleCode, status = fields.status
+    }
+  })
+end
+
 function Audit.clearSource(source)
   source = tonumber(source)
   if source then denialWindows[source] = nil end

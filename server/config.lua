@@ -61,5 +61,25 @@ MZPoliceConfig = {
     containers = {
       intake = { label = 'Intake', enabled = true }
     }
+  },
+
+  Records = {
+    readCapability = 'mdt.open',
+    writeCapability = 'police.records.write',
+    citationCapability = 'police.citation.issue',
+    warrantCreateCapability = 'police.warrant.create',
+    warrantApproveCapability = 'police.warrant.approve',
+    requestRetentionMs = 120000,
+    rateLimit = { maximum = 12, windowMs = 5000 },
+    pageSize = 25,
+    maximumPageSize = 50,
+
+    -- Regras legais permanecem fail-closed ate aprovacao explicita do operador.
+    legalRulesEnabled = false,
+    legalVersion = 'unapproved',
+    jurisdictions = {},
+    charges = {},
+    citations = {},
+    warrants = { enabled = false, rules = {} }
   }
 }

@@ -89,3 +89,21 @@ AddEventHandler('mz_police:server:evidence:transfer', function(payload)
   local actorSource = source
   TriggerClientEvent('mz_police:client:evidence:result', actorSource, MZPolice.Evidence.transfer(actorSource, payload))
 end)
+
+local recordActions = {
+  searchCitizens = 'searchCitizens', getCitizen = 'getCitizen', upsertRecord = 'upsertRecord',
+  createCase = 'createCase', updateCase = 'updateCase', listCases = 'listCases', getCase = 'getCase',
+  addCasePerson = 'addCasePerson', addCaseCharge = 'addCaseCharge', issueCitation = 'issueCitation',
+  createWarrant = 'createWarrant', reviewWarrant = 'reviewWarrant'
+}
+
+for eventAction, method in pairs(recordActions) do
+  RegisterNetEvent(('mz_police:server:records:%s'):format(eventAction))
+  AddEventHandler(('mz_police:server:records:%s'):format(eventAction), function(payload)
+    local actorSource = source
+    TriggerClientEvent('mz_police:client:records:result', actorSource, {
+      action = eventAction,
+      response = MZPolice.Records[method](actorSource, payload)
+    })
+  end)
+end

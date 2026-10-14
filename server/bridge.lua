@@ -171,4 +171,18 @@ function Bridge.impoundScannedVehicle(source, scanId, reason, reference, operati
   return value
 end
 
+function Bridge.listPoliceEvidence(source, orgCode, containerId)
+  local ok, value = callExport('mz_inventory', 'ListPoliceEvidence', source, orgCode, containerId)
+  if ok ~= true then return nil, tostring(value or 'evidence_list_failed') end
+  return value
+end
+
+function Bridge.transferPoliceEvidence(source, orgCode, fromContainer, toContainer, instanceUid, operationId)
+  local ok, value = callExport(
+    'mz_inventory', 'TransferPoliceEvidence', source, orgCode, fromContainer, toContainer, instanceUid, operationId
+  )
+  if ok ~= true then return nil, tostring(value or 'evidence_transfer_failed') end
+  return value
+end
+
 MZPolice.Bridge = Bridge

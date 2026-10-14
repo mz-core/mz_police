@@ -77,3 +77,15 @@ AddEventHandler('mz_police:server:road:removeNearest', function(payload)
     'mz_police:client:enforcement:result', actorSource, MZPolice.Enforcement.removeNearestObject(actorSource, payload)
   )
 end)
+
+RegisterNetEvent('mz_police:server:evidence:list')
+AddEventHandler('mz_police:server:evidence:list', function(payload)
+  local actorSource = source
+  TriggerClientEvent('mz_police:client:evidence:result', actorSource, MZPolice.Evidence.list(actorSource, payload))
+end)
+
+RegisterNetEvent('mz_police:server:evidence:transfer')
+AddEventHandler('mz_police:server:evidence:transfer', function(payload)
+  local actorSource = source
+  TriggerClientEvent('mz_police:client:evidence:result', actorSource, MZPolice.Evidence.transfer(actorSource, payload))
+end)

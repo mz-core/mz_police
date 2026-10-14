@@ -50,5 +50,16 @@ MZPoliceConfig = {
     maximumPerOfficer = 6,
     maximumGlobal = 60,
     types = {}
+  },
+
+  Evidence = {
+    listCapability = 'police.evidence.collect',
+    manageCapability = 'police.evidence.manage',
+    requestRetentionMs = 120000,
+    rateLimit = { maximum = 8, windowMs = 5000 },
+    occurrenceAssociationEnabled = false,
+    containers = {
+      intake = { label = 'Intake', enabled = true }
+    }
   }
 }

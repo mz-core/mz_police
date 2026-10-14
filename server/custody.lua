@@ -475,6 +475,7 @@ function Custody.sweep()
   if MZPolice.Search then MZPolice.Search.sweep() end
   if MZPolice.Stations then MZPolice.Stations.sweep() end
   if MZPolice.Enforcement then MZPolice.Enforcement.sweep() end
+  if MZPolice.Evidence then MZPolice.Evidence.sweep() end
 end
 
 function Custody.start()

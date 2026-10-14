@@ -20,6 +20,7 @@ server_scripts {
   'server/search.lua',
   'server/stations.lua',
   'server/enforcement.lua',
+  'server/evidence.lua',
   'server/events.lua',
   'server/main.lua',
   'server/p1_gate.lua'

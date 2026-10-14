@@ -139,6 +139,18 @@ function Audit.enforcement(action, actor, fields)
   })
 end
 
+function Audit.evidence(action, actor, fields)
+  fields = type(fields) == 'table' and fields or {}
+  return MZPolice.Bridge.createDetailedLog(('police.evidence.%s'):format(tostring(action)), {
+    actor = { type = 'character', id = actor.citizenid, citizenid = actor.citizenid },
+    target = fields.instanceUid and { type = 'item', id = fields.instanceUid } or nil,
+    context = { orgCode = fields.orgCode, operationId = fields.operationId },
+    before = { containerId = fields.fromContainer },
+    after = { containerId = fields.toContainer },
+    meta = { result = fields.result, reason = fields.reason }
+  })
+end
+
 function Audit.clearSource(source)
   source = tonumber(source)
   if source then denialWindows[source] = nil end

@@ -30,11 +30,13 @@ AddEventHandler('playerDropped', function()
   if MZPolice.Custody then MZPolice.Custody.cleanupSource(source, 'player_dropped') end
   if MZPolice.Search then MZPolice.Search.cleanupSource(source) end
   if MZPolice.Stations then MZPolice.Stations.cleanupSource(source) end
+  if MZPolice.Enforcement then MZPolice.Enforcement.cleanupSource(source, 'player_dropped') end
 end)
 
 AddEventHandler('onResourceStop', function(resourceName)
   if resourceName ~= GetCurrentResourceName() or not MZPolice.Custody then return end
   if MZPolice.Search then MZPolice.Search.stop() end
+  if MZPolice.Enforcement then MZPolice.Enforcement.stop() end
   MZPolice.Custody.stop('resource_stop')
 end)
 

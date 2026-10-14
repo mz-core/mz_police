@@ -149,4 +149,26 @@ function Bridge.returnPoliceEquipment(source, orgCode, stationId, instanceUid, o
   return value
 end
 
+function Bridge.scanNearestVehicle(source, maximumDistance)
+  local ok, value = callExport('mz_vehicles', 'PoliceScanNearestVehicle', source, maximumDistance)
+  if ok ~= true then return nil, tostring(value or 'vehicle_scan_failed') end
+  return value
+end
+
+function Bridge.setVehicleFlag(source, scanId, flagCode, active, reference, operationId)
+  local ok, value = callExport(
+    'mz_vehicles', 'PoliceSetVehicleFlag', source, scanId, flagCode, active, reference, operationId
+  )
+  if ok ~= true then return nil, tostring(value or 'vehicle_flag_failed') end
+  return value
+end
+
+function Bridge.impoundScannedVehicle(source, scanId, reason, reference, operationId)
+  local ok, value = callExport(
+    'mz_vehicles', 'PoliceImpoundScannedVehicle', source, scanId, reason, reference, operationId
+  )
+  if ok ~= true then return nil, tostring(value or 'vehicle_impound_failed') end
+  return value
+end
+
 MZPolice.Bridge = Bridge

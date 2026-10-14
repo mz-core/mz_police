@@ -32,5 +32,23 @@ MZPoliceConfig = {
     requestRetentionMs = 120000,
     rateLimit = { maximum = 6, windowMs = 5000 },
     catalog = {}
+  },
+
+  Enforcement = {
+    scanDistance = 12.0,
+    scanTtlSeconds = 30,
+    rateLimit = { maximum = 8, windowMs = 5000 },
+    requestRetentionMs = 120000,
+    flags = {},
+    impoundReasons = {}
+  },
+
+  RoadObjects = {
+    capability = 'police.road.tools',
+    placementDistance = 2.0,
+    removalDistance = 8.0,
+    maximumPerOfficer = 6,
+    maximumGlobal = 60,
+    types = {}
   }
 }

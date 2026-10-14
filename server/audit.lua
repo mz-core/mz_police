@@ -118,6 +118,27 @@ function Audit.armory(action, actor, fields)
   })
 end
 
+function Audit.enforcement(action, actor, fields)
+  fields = type(fields) == 'table' and fields or {}
+  return MZPolice.Bridge.createDetailedLog(('police.enforcement.%s'):format(tostring(action)), {
+    actor = { type = 'character', id = actor.citizenid, citizenid = actor.citizenid },
+    target = fields.plate and { type = 'vehicle', id = fields.plate } or nil,
+    context = {
+      orgCode = fields.orgCode,
+      operationId = fields.operationId,
+      objectId = fields.objectId
+    },
+    meta = {
+      mode = fields.mode,
+      flagCode = fields.flagCode,
+      reasonCode = fields.reasonCode,
+      objectType = fields.objectType,
+      result = fields.result,
+      reason = fields.reason
+    }
+  })
+end
+
 function Audit.clearSource(source)
   source = tonumber(source)
   if source then denialWindows[source] = nil end

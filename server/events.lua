@@ -45,3 +45,35 @@ AddEventHandler('mz_police:server:armory:return', function(payload)
   local actorSource = source
   TriggerClientEvent('mz_police:client:armory:result', actorSource, MZPolice.Stations.returnIssued(actorSource, payload))
 end)
+
+RegisterNetEvent('mz_police:server:enforcement:scan')
+AddEventHandler('mz_police:server:enforcement:scan', function(payload)
+  local actorSource = source
+  TriggerClientEvent('mz_police:client:enforcement:result', actorSource, MZPolice.Enforcement.scan(actorSource, payload))
+end)
+
+RegisterNetEvent('mz_police:server:enforcement:flag')
+AddEventHandler('mz_police:server:enforcement:flag', function(payload)
+  local actorSource = source
+  TriggerClientEvent('mz_police:client:enforcement:result', actorSource, MZPolice.Enforcement.flag(actorSource, payload))
+end)
+
+RegisterNetEvent('mz_police:server:enforcement:impound')
+AddEventHandler('mz_police:server:enforcement:impound', function(payload)
+  local actorSource = source
+  TriggerClientEvent('mz_police:client:enforcement:result', actorSource, MZPolice.Enforcement.impound(actorSource, payload))
+end)
+
+RegisterNetEvent('mz_police:server:road:place')
+AddEventHandler('mz_police:server:road:place', function(payload)
+  local actorSource = source
+  TriggerClientEvent('mz_police:client:enforcement:result', actorSource, MZPolice.Enforcement.placeObject(actorSource, payload))
+end)
+
+RegisterNetEvent('mz_police:server:road:removeNearest')
+AddEventHandler('mz_police:server:road:removeNearest', function(payload)
+  local actorSource = source
+  TriggerClientEvent(
+    'mz_police:client:enforcement:result', actorSource, MZPolice.Enforcement.removeNearestObject(actorSource, payload)
+  )
+end)

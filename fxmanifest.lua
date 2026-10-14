@@ -19,6 +19,7 @@ server_scripts {
   'server/custody.lua',
   'server/search.lua',
   'server/stations.lua',
+  'server/enforcement.lua',
   'server/events.lua',
   'server/main.lua',
   'server/p1_gate.lua'
@@ -26,7 +27,8 @@ server_scripts {
 
 client_scripts {
   'client/custody.lua',
-  'client/stations.lua'
+  'client/stations.lua',
+  'client/enforcement.lua'
 }
 
 dependencies {

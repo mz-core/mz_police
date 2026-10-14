@@ -43,6 +43,7 @@ dependencies {
   'mz_org',
   'mz_economy',
   'mz_inventory',
+  'mz_vehicles',
   'mz_interact',
   'mz_menu',
   'mz_garagem'

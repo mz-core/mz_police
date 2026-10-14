@@ -1,6 +1,7 @@
 local function expect(condition, message) if not condition then error(message, 2) end end
 
 local now, sentenceCalls, cleanupCalls, audits = 1000, 0, 0, 0
+local caseMode = 'valid'
 function GetGameTimer() now = now + 1; return now end
 function GetPlayerRoutingBucket() return 0 end
 function GetPlayerPed(source) return source + 100 end
@@ -24,6 +25,17 @@ MZPolice = {
     end,
     cleanupSource = function() cleanupCalls = cleanupCalls + 1 end
   },
+  RecordsRepository = { getCase = function(orgCode, caseId)
+    if caseMode == 'missing' then return nil end
+    return {
+      public_id = caseId, org_code = orgCode,
+      charges = caseMode == 'unrelated' and {
+        { citizenid = 'OTHER', rule_code = 'custodial', sentence_seconds = 120 }
+      } or {
+        { citizenid = 'TARGET1', rule_code = 'custodial', sentence_seconds = 120 }
+      }
+    }
+  end },
   Bridge = {
     requestSentence = function(_, _, request)
       sentenceCalls = sentenceCalls + 1
@@ -49,6 +61,11 @@ expect(MZPolice.Prison.requestSentence(1, {
   targetSource = 3, caseId = 'case:0001', ruleCode = 'custodial', requestId = 'request_sentence_03'
 }).code == 'custody_required', 'alvo sem custodia foi aceito')
 
+caseMode = 'missing'
+expect(MZPolice.Prison.requestSentence(1, payload).code == 'case_not_found', 'caso inexistente foi aceito')
+caseMode = 'unrelated'
+expect(MZPolice.Prison.requestSentence(1, payload).code == 'sentence_charge_not_found', 'cargo sem vinculo ao alvo foi aceito')
+caseMode = 'valid'
 local started = MZPolice.Prison.requestSentence(1, payload)
 expect(started.ok == true and sentenceCalls == 1 and cleanupCalls == 1, 'sentenca valida falhou')
 local read = MZPolice.Prison.getSentence(1, { citizenid = 'TARGET1' })
@@ -63,4 +80,4 @@ local released = MZPolice.Prison.releasePrisoner(1, {
 expect(released.ok == true and released.sentence.status == 'released', 'soltura autorizada falhou')
 expect(audits == 3, 'auditoria policial incompleta')
 
-print('mz_police P7 prison harness: PASS cases=9')
+print('mz_police P7 prison harness: PASS cases=11')

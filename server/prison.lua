@@ -79,11 +79,23 @@ function Prison.requestSentence(source, payload)
     or tonumber(custody.cuffedBy.source) ~= tonumber(source) then return { ok = false, code = 'custody_required' } end
   local close, proximityError = proximity(source, targetSource)
   if not close then return { ok = false, code = proximityError } end
+  local targetCitizenid = custody.target and token(custody.target.citizenid, 2, 64) or nil
+  if not targetCitizenid then return { ok = false, code = 'invalid_custody_identity' } end
+  local case = MZPolice.RecordsRepository.getCase(decision.organization.code, caseId)
+  if not case then return { ok = false, code = 'case_not_found' } end
+  local sentenceCharge
+  for _, charge in ipairs(case.charges or {}) do
+    if tostring(charge.citizenid) == targetCitizenid and tostring(charge.rule_code) == ruleCode
+      and (tonumber(charge.sentence_seconds) or 0) > 0 then
+      sentenceCharge = charge
+      break
+    end
+  end
+  if not sentenceCharge then return { ok = false, code = 'sentence_charge_not_found' } end
   local result, sentenceError = MZPolice.Bridge.requestSentence(source, targetSource, {
     ruleCode = ruleCode, caseId = caseId, operationId = operation,
     orgCode = decision.organization.code
   })
-  local targetCitizenid = custody.target and custody.target.citizenid or nil
   MZPolice.Audit.prison('sentence_request', decision.identity, {
     targetCitizenid = targetCitizenid, orgCode = decision.organization.code,
     caseId = caseId, operationId = operation,

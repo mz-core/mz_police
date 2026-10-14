@@ -13,8 +13,9 @@ local function initialize()
   local organizationReady = MZPolice.Bridge.organizationReady() == true
   MZPolice.Audit.started(organizationReady)
   if MZPolice.Custody then MZPolice.Custody.start() end
-  print(('[mz_police][P2A] initialized; organization_ready=%s duty_point=pending'):format(
-    tostring(organizationReady)
+  print(('[mz_police][P3] initialized; organization_ready=%s stations=%s'):format(
+    tostring(organizationReady),
+    tostring(MZPolice.Stations and MZPolice.Stations.configuredCount() or 0)
   ))
   return true
 end
@@ -28,6 +29,7 @@ AddEventHandler('playerDropped', function()
   MZPolice.Audit.clearSource(source)
   if MZPolice.Custody then MZPolice.Custody.cleanupSource(source, 'player_dropped') end
   if MZPolice.Search then MZPolice.Search.cleanupSource(source) end
+  if MZPolice.Stations then MZPolice.Stations.cleanupSource(source) end
 end)
 
 AddEventHandler('onResourceStop', function(resourceName)

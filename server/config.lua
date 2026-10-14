@@ -21,5 +21,16 @@ MZPoliceConfig = {
     sessionRetentionSeconds = 45,
     defaultEvidenceContainer = 'intake',
     rateLimit = { maximum = 8, windowMs = 5000 }
+  },
+
+  -- Vazio por padrao: coordenadas reais devem ser configuradas pelo operador.
+  Stations = {},
+
+  Armory = {
+    capability = 'armory.basic',
+    maximumDistance = 2.5,
+    requestRetentionMs = 120000,
+    rateLimit = { maximum = 6, windowMs = 5000 },
+    catalog = {}
   }
 }

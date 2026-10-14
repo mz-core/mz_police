@@ -14,7 +14,8 @@ expect(manifest:find("name 'mz_police'", 1, true), 'manifest does not identify m
 expect(manifest:find("'mz_core'", 1, true), 'manifest does not depend on mz_core')
 expect(manifest:find("'mz_org'", 1, true), 'manifest does not depend on mz_org')
 expect(manifest:find("'server/p1_gate.lua'", 1, true), 'manifest does not load the P1 runtime gate')
-expect(not manifest:find('shared_script', 1, true), 'P1 unexpectedly loads shared/client scripts')
+expect(manifest:find("'server/config.lua'", 1, true), 'shared police config is not loaded')
+expect(not manifest:find('ui_page', 1, true), 'police unexpectedly owns a NUI')
 expect(not manifest:find('oxmysql', 1, true), 'P1 unexpectedly depends on persistence')
 
 local policySource = readFile('server/policy.lua')

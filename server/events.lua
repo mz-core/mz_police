@@ -27,3 +27,21 @@ AddEventHandler('mz_police:server:search:close', function(payload)
   local actorSource = source
   TriggerClientEvent('mz_police:client:search:result', actorSource, MZPolice.Search.close(actorSource, payload))
 end)
+
+RegisterNetEvent('mz_police:server:armory:open')
+AddEventHandler('mz_police:server:armory:open', function(payload)
+  local actorSource = source
+  TriggerClientEvent('mz_police:client:armory:result', actorSource, MZPolice.Stations.openArmory(actorSource, payload))
+end)
+
+RegisterNetEvent('mz_police:server:armory:issue')
+AddEventHandler('mz_police:server:armory:issue', function(payload)
+  local actorSource = source
+  TriggerClientEvent('mz_police:client:armory:result', actorSource, MZPolice.Stations.issue(actorSource, payload))
+end)
+
+RegisterNetEvent('mz_police:server:armory:return')
+AddEventHandler('mz_police:server:armory:return', function(payload)
+  local actorSource = source
+  TriggerClientEvent('mz_police:client:armory:result', actorSource, MZPolice.Stations.returnIssued(actorSource, payload))
+end)

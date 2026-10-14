@@ -127,4 +127,26 @@ function Bridge.revokeInventoryGrant(actorSource, grantToken)
   return true, value
 end
 
+function Bridge.listPoliceIssuedEquipment(source, orgCode, stationId)
+  local ok, value = callExport('mz_inventory', 'ListPoliceIssuedEquipment', source, orgCode, stationId)
+  if ok ~= true then return nil, tostring(value or 'inventory_armory_list_failed') end
+  return value
+end
+
+function Bridge.issuePoliceEquipment(source, orgCode, stationId, catalogKey, itemName, operationId)
+  local ok, value = callExport(
+    'mz_inventory', 'IssuePoliceEquipment', source, orgCode, stationId, catalogKey, itemName, operationId
+  )
+  if ok ~= true then return nil, tostring(value or 'inventory_armory_issue_failed') end
+  return value
+end
+
+function Bridge.returnPoliceEquipment(source, orgCode, stationId, instanceUid, operationId)
+  local ok, value = callExport(
+    'mz_inventory', 'ReturnPoliceEquipment', source, orgCode, stationId, instanceUid, operationId
+  )
+  if ok ~= true then return nil, tostring(value or 'inventory_armory_return_failed') end
+  return value
+end
+
 MZPolice.Bridge = Bridge

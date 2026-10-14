@@ -99,6 +99,25 @@ function Audit.custodyCleanup(target, fields)
   })
 end
 
+function Audit.armory(action, actor, fields)
+  fields = type(fields) == 'table' and fields or {}
+  return MZPolice.Bridge.createDetailedLog(('police.armory.%s'):format(tostring(action)), {
+    actor = { type = 'character', id = actor.citizenid, citizenid = actor.citizenid },
+    context = {
+      orgCode = fields.orgCode,
+      stationId = fields.stationId,
+      operationId = fields.operationId
+    },
+    meta = {
+      catalogKey = fields.catalogKey,
+      item = fields.item,
+      instanceUid = fields.instanceUid,
+      result = fields.result,
+      reason = fields.reason
+    }
+  })
+end
+
 function Audit.clearSource(source)
   source = tonumber(source)
   if source then denialWindows[source] = nil end

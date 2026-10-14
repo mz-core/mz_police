@@ -473,6 +473,7 @@ function Custody.sweep()
     if reason then releaseTarget(targetSource, reason) end
   end
   if MZPolice.Search then MZPolice.Search.sweep() end
+  if MZPolice.Stations then MZPolice.Stations.sweep() end
 end
 
 function Custody.start()

@@ -43,6 +43,8 @@
     legal_rules_disabled: 'O catálogo jurídico está desativado.',
     records_unavailable: 'O backend de registros não está pronto.',
     evidence_container_not_configured: 'O contêiner de evidências não está configurado.',
+    evidence_association_disabled: 'A associação de evidências está desativada na configuração.',
+    evidence_already_linked: 'Esta evidência já está vinculada ao caso.',
     organization_unavailable: 'O serviço de organizações está indisponível.',
     rate_limited: 'Muitas solicitações. Aguarde e tente novamente.',
     request_timeout: 'O servidor não respondeu dentro do limite.',
@@ -282,7 +284,27 @@
   function renderEvidence() {
     const evidence = state.evidence;
     const items = evidence?.items || [];
-    return `<div class="stack"><div class="notice">A associação entre evidência e caso continua desativada no backend. Esta tela não simula esse vínculo.</div><div class="panel"><div class="panel-header"><div><h2>Intake de evidências</h2><p>Leitura server-side do contêiner configurado.</p></div><button id="load-evidence" class="button" type="button"><i data-lucide="scan-barcode"></i>Consultar intake</button></div>${items.length ? `<div class="data-list">${items.map((item) => `<div class="data-row"><span><strong>${esc(item.label || item.name || 'Item de evidência')}</strong><small>${esc(value(item, 'instanceUid', 'instance_uid'))}</small></span><span>${esc(value(item, 'evidenceId', 'evidence_id') || 'Identificado')}</span><span class="status">REV ${esc(value(item, 'revision') || 1)}</span></div>`).join('')}</div>` : empty('Nenhuma evidência carregada', 'Consulte o intake. A operação exige capability própria.', 'scan-barcode')}</div></div>`;
+    const linked = state.selectedCase?.evidence || [];
+    const caseHistory = (state.selectedCase?.history || []).filter((item) => item.action === 'evidence_linked');
+    const caseId = value(state.selectedCase, 'public_id', 'publicId');
+    const associationEnabled = evidence?.associationEnabled === true;
+    const linkNotice = associationEnabled
+      ? (caseId ? `Vínculo autorizado disponível para o caso ${esc(caseId)}.` : 'Abra um caso antes de vincular uma evidência.')
+      : 'A associação está desativada até aprovação explícita da configuração.';
+    return `<div class="stack">
+      <div class="notice">${linkNotice}</div>
+      <div class="panel"><div class="panel-header"><div><h2>Evidências vinculadas ao caso</h2><p>${caseId ? esc(caseId) : 'Nenhum caso selecionado.'}</p></div></div>
+        ${linked.length ? `<div class="data-list">${linked.map((item) => `<div class="data-row"><span><strong>${esc(item.label || item.item)}</strong><small>${esc(value(item, 'evidence_id', 'evidenceId'))}</small></span><span>${esc(value(item, 'linked_by_citizenid', 'linkedByCitizenid'))}</span><span class="status">REV ${esc(value(item, 'linked_evidence_revision', 'linkedEvidenceRevision'))}</span></div>`).join('')}</div>` : empty('Sem evidências vinculadas', 'Abra um caso para consultar seus vínculos persistidos.', 'link')}</div>
+      <div class="panel"><div class="panel-header"><div><h2>Histórico de vínculos</h2><p>Trilha persistida pelo domínio policial.</p></div></div>
+        ${caseHistory.length ? `<div class="data-list">${caseHistory.map((item) => `<div class="data-row"><span><strong>Evidência vinculada</strong><small>${esc(value(item, 'actor_citizenid', 'actorCitizenid'))}</small></span><span>${esc(formatDate(value(item, 'created_at', 'createdAt')))}</span><span class="status">AUDITADO</span></div>`).join('')}</div>` : empty('Sem histórico de vínculos', 'Nenhuma associação foi registrada neste caso.', 'history')}</div>
+      <div class="panel"><div class="panel-header"><div><h2>Intake de evidências</h2><p>Leitura server-side do contêiner configurado.</p></div><button id="load-evidence" class="button" type="button"><i data-lucide="scan-barcode"></i>Consultar intake</button></div>
+        ${items.length ? `<div class="data-list">${items.map((item) => {
+          const metadata = item.evidence || {};
+          const uid = value(item, 'instanceUid', 'instance_uid');
+          return `<div class="data-row"><span><strong>${esc(item.label || item.item || 'Item de evidência')}</strong><small>${esc(uid)}</small></span><span>${esc(value(metadata, 'evidenceId', 'evidence_id') || 'Identificado')}</span><span>${associationEnabled && caseId ? `<button class="button" type="button" data-evidence-link="${esc(uid)}"><i data-lucide="link"></i>Vincular</button>` : `<span class="status">REV ${esc(value(metadata, 'revision') || 1)}</span>`}</span></div>`;
+        }).join('')}</div>` : empty('Nenhuma evidência carregada', 'Consulte o intake. A operação exige capability própria.', 'scan-barcode')}
+      </div>
+    </div>`;
   }
 
   function renderHistory() {
@@ -351,6 +373,18 @@
       if (response.ok) state.evidence = response; else toast(messageFor(response), 'error');
       render();
     });
+    content.querySelectorAll('[data-evidence-link]').forEach((button) => button.addEventListener('click', async () => {
+      const response = await request('evidenceLink', {
+        caseId: value(state.selectedCase, 'public_id', 'publicId'),
+        containerId: state.evidence.containerId,
+        instanceUid: button.dataset.evidenceLink,
+        requestId: requestId('evidence_link'),
+      });
+      if (!response.ok) { toast(messageFor(response), 'error'); return; }
+      state.selectedCase = response.case;
+      toast('Evidência vinculada ao caso.');
+      render();
+    }));
 
     document.getElementById('citizen-search-form')?.addEventListener('submit', async (event) => {
       event.preventDefault();

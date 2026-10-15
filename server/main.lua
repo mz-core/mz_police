@@ -45,6 +45,7 @@ AddEventHandler('onResourceStop', function(resourceName)
   if resourceName ~= GetCurrentResourceName() or not MZPolice.Custody then return end
   if MZPolice.Search then MZPolice.Search.stop() end
   if MZPolice.Enforcement then MZPolice.Enforcement.stop() end
+  if MZPolice.Evidence then MZPolice.Evidence.stop() end
   if MZPolice.Records then MZPolice.Records.stop() end
   if MZPolice.Prison then MZPolice.Prison.stop() end
   MZPolice.Custody.stop('resource_stop')

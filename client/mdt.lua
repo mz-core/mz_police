@@ -12,7 +12,8 @@ local events = {
   getCase = 'mz_police:server:records:getCase',
   updateCase = 'mz_police:server:records:updateCase',
   addCasePerson = 'mz_police:server:records:addCasePerson',
-  evidenceList = 'mz_police:server:evidence:list'
+  evidenceList = 'mz_police:server:evidence:list',
+  evidenceLink = 'mz_police:server:evidence:linkCase'
 }
 
 local function notify(message, kind)
@@ -64,6 +65,10 @@ end)
 
 RegisterNetEvent('mz_police:client:evidence:result', function(response)
   sendResult('evidenceList', response)
+end)
+
+RegisterNetEvent('mz_police:client:evidence:linkResult', function(response)
+  sendResult('evidenceLink', response)
 end)
 
 RegisterNUICallback('request', function(data, callback)

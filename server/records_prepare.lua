@@ -60,6 +60,23 @@ local statements = {
     CONSTRAINT fk_mz_police_case_charges_case FOREIGN KEY (case_public_id)
       REFERENCES mz_police_cases(public_id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]],
+  [[CREATE TABLE IF NOT EXISTS mz_police_case_evidence (
+    case_public_id VARCHAR(160) NOT NULL,
+    evidence_id VARCHAR(160) NOT NULL,
+    instance_uid VARCHAR(64) NOT NULL,
+    item VARCHAR(64) NOT NULL,
+    label VARCHAR(160) NOT NULL,
+    amount INT UNSIGNED NOT NULL,
+    linked_container_id VARCHAR(48) NOT NULL,
+    linked_evidence_revision INT UNSIGNED NOT NULL,
+    linked_by_citizenid VARCHAR(64) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (case_public_id, evidence_id),
+    UNIQUE KEY uq_mz_police_case_evidence_instance (case_public_id, instance_uid),
+    KEY idx_mz_police_case_evidence_uid (instance_uid),
+    CONSTRAINT fk_mz_police_case_evidence_case FOREIGN KEY (case_public_id)
+      REFERENCES mz_police_cases(public_id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]],
   [[CREATE TABLE IF NOT EXISTS mz_police_citations (
     public_id VARCHAR(160) NOT NULL PRIMARY KEY,
     operation_id VARCHAR(160) NOT NULL,

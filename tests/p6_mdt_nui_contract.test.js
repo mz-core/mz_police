@@ -21,6 +21,7 @@ test('MDT NUI is local, focus-safe and wired only to canonical P6 events', () =>
   assert.match(client, /SetNuiFocus\(false, false\)/);
   assert.match(client, /mz_police:server:records:listCases/);
   assert.match(client, /mz_police:server:evidence:list/);
+  assert.match(client, /mz_police:server:evidence:linkCase/);
   assert.doesNotMatch(client, /TriggerServerEvent\([^\n]*(?:amount|sentence|fine)/i);
   assert.doesNotMatch(html, /https?:\/\//i);
   assert.doesNotMatch(app.replace('https://${resourceName}', ''), /https?:\/\//i);
@@ -32,6 +33,7 @@ test('MDT exposes every requested screen and labels unavailable contracts', () =
     assert.ok(app.includes(`'${screen}'`), `${screen} screen missing`);
   }
   assert.match(app, /catálogo jurídico não expõe|catálogo jurídico aprovado/i);
-  assert.match(app, /associação entre evidência e caso continua desativada/i);
+  assert.match(app, /evidências vinculadas ao caso/i);
+  assert.match(app, /associationEnabled === true/);
   assert.match(app, /Preview visual isolado/);
 });

@@ -19,10 +19,11 @@ expect(config:find('legalRulesEnabled = false', 1, true), 'regras legais nao est
 expect(config:find('citations = {}', 1, true), 'catalogo de multas inventado')
 expect(prepare:find('mz_police_cases', 1, true) and prepare:find('mz_police_citations', 1, true)
   and prepare:find('mz_police_warrants', 1, true), 'schema P6 incompleto')
+expect(prepare:find('mz_police_case_evidence', 1, true), 'schema de vinculo investigativo ausente')
 expect(repository:find('MySQL.transaction.await', 1, true), 'mutacoes policiais nao usam transacao')
 expect(records:find("MZPoliceConfig.Records.citationCapability", 1, true), 'capability de multa ausente')
 expect(records:find("MZPoliceConfig.Records.warrantApproveCapability", 1, true), 'capability de aprovacao ausente')
 expect(bridge:find("'SettlePlayerOrganizationCharge'", 1, true), 'liquidacao canonica nao utilizada')
 expect(not records:find('RemoveMoney', 1, true), 'mz_police escreve saldo diretamente')
 
-print('mz_police P6 static harness: PASS cases=10')
+print('mz_police P6 static harness: PASS cases=11')

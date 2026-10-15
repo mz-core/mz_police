@@ -76,7 +76,33 @@ function Repository.getCase(orgCode, publicId)
   row.charges = MySQL.query.await(
     'SELECT * FROM mz_police_case_charges WHERE case_public_id = ? ORDER BY created_at ASC', { publicId }
   ) or {}
+  row.evidence = MySQL.query.await([[SELECT evidence_id, instance_uid, item, label, amount,
+    linked_container_id, linked_evidence_revision, linked_by_citizenid, created_at
+    FROM mz_police_case_evidence WHERE case_public_id = ? ORDER BY created_at ASC]], { publicId }) or {}
+  row.history = MySQL.query.await([[SELECT action, actor_citizenid, details_json, created_at
+    FROM mz_police_history WHERE org_code = ? AND entity_type = 'case' AND entity_id = ?
+    ORDER BY id DESC LIMIT 100]], { orgCode, publicId }) or {}
   return row
+end
+
+function Repository.getCaseEvidence(caseId, evidenceId)
+  return MySQL.single.await([[SELECT * FROM mz_police_case_evidence
+    WHERE case_public_id = ? AND evidence_id = ? LIMIT 1]], { caseId, evidenceId })
+end
+
+function Repository.linkCaseEvidence(data)
+  return transaction({ {
+    query = [[INSERT INTO mz_police_case_evidence
+      (case_public_id, evidence_id, instance_uid, item, label, amount, linked_container_id,
+       linked_evidence_revision, linked_by_citizenid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)]],
+    parameters = {
+      data.caseId, data.evidenceId, data.instanceUid, data.item, data.label, data.amount,
+      data.containerId, data.evidenceRevision, data.actorCitizenid
+    }
+  }, {
+    query = 'UPDATE mz_police_cases SET revision = revision + 1 WHERE public_id = ? AND org_code = ?',
+    parameters = { data.caseId, data.orgCode }
+  } }, data.history)
 end
 
 function Repository.updateCase(data)

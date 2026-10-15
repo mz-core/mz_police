@@ -90,6 +90,12 @@ AddEventHandler('mz_police:server:evidence:transfer', function(payload)
   TriggerClientEvent('mz_police:client:evidence:result', actorSource, MZPolice.Evidence.transfer(actorSource, payload))
 end)
 
+RegisterNetEvent('mz_police:server:evidence:linkCase')
+AddEventHandler('mz_police:server:evidence:linkCase', function(payload)
+  local actorSource = source
+  TriggerClientEvent('mz_police:client:evidence:linkResult', actorSource, MZPolice.Evidence.linkCase(actorSource, payload))
+end)
+
 local recordActions = {
   searchCitizens = 'searchCitizens', getCitizen = 'getCitizen', upsertRecord = 'upsertRecord',
   createCase = 'createCase', updateCase = 'updateCase', listCases = 'listCases', getCase = 'getCase',

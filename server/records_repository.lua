@@ -119,7 +119,8 @@ function Repository.listCases(orgCode, kind, status, limit, offset)
   local clauses, params = { 'org_code = ?' }, { orgCode }
   if kind then clauses[#clauses + 1] = 'case_kind = ?'; params[#params + 1] = kind end
   if status then clauses[#clauses + 1] = 'status = ?'; params[#params + 1] = status end
-  params[#params + 1], params[#params + 1] = limit, offset
+  params[#params + 1] = limit
+  params[#params + 1] = offset
   return MySQL.query.await(([[SELECT public_id, case_kind, title, status, created_by_citizenid,
     revision, created_at, updated_at FROM mz_police_cases WHERE %s
     ORDER BY updated_at DESC LIMIT ? OFFSET ?]]):format(table.concat(clauses, ' AND ')), params) or {}

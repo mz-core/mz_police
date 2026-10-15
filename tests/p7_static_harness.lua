@@ -16,7 +16,9 @@ expect(prison:find('MZPolice.Custody.get', 1, true), 'custodia autoritativa nao 
 expect(prison:find('GetPlayerRoutingBucket', 1, true) and prison:find('maximumDistance', 1, true), 'proximidade/bucket ausentes')
 expect(prison:find('police.arrest.request', 1, true) == nil, 'capability foi hardcoded fora da configuracao')
 expect(not prison:find('durationSeconds', 1, true), 'duracao foi aceita pelo adapter policial')
+expect(prison:find('chargeId = true', 1, true) and prison:find('sentenceCharge.sentence_seconds', 1, true),
+  'identificador/snapshot canonico da acusacao P6 nao alimenta P7')
 expect(bridge:find("'RequestSentence'", 1, true) and bridge:find("'RestorePrisonerProperty'", 1, true) == nil,
   'adapter ultrapassa o owner prisional')
 
-print('mz_police P7 static harness: PASS cases=8')
+print('mz_police P7 static harness: PASS cases=9')

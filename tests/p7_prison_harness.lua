@@ -1,6 +1,6 @@
 local function expect(condition, message) if not condition then error(message, 2) end end
 
-local now, sentenceCalls, cleanupCalls, audits = 1000, 0, 0, 0
+local now, sentenceCalls, cleanupCalls, audits, sentenceRequest = 1000, 0, 0, 0, nil
 local caseMode = 'valid'
 function GetGameTimer() now = now + 1; return now end
 function GetPlayerRoutingBucket() return 0 end
@@ -30,15 +30,18 @@ MZPolice = {
     return {
       public_id = caseId, org_code = orgCode,
       charges = caseMode == 'unrelated' and {
-        { citizenid = 'OTHER', rule_code = 'custodial', sentence_seconds = 120 }
+        { public_id = 'charge:0001', citizenid = 'OTHER', rule_code = 'custodial',
+          rule_name = 'Custodial', sentence_seconds = 120, legal_version = 'test-v1' }
       } or {
-        { citizenid = 'TARGET1', rule_code = 'custodial', sentence_seconds = 120 }
+        { public_id = 'charge:0001', citizenid = 'TARGET1', rule_code = 'custodial',
+          rule_name = 'Custodial', sentence_seconds = 120, legal_version = 'test-v1' }
       }
     }
   end },
   Bridge = {
     requestSentence = function(_, _, request)
       sentenceCalls = sentenceCalls + 1
+      sentenceRequest = request
       return { public_id = 'sentence:' .. request.operationId, status = 'active' }
     end,
     getSentence = function(citizenid) return { target_citizenid = citizenid, status = 'active' } end,
@@ -50,15 +53,15 @@ MZPolice = {
 
 dofile('server/prison.lua')
 
-local payload = { targetSource = 2, caseId = 'case:0001', ruleCode = 'custodial', requestId = 'request_sentence_01' }
+local payload = { targetSource = 2, caseId = 'case:0001', chargeId = 'charge:0001', requestId = 'request_sentence_01' }
 expect(MZPolice.Prison.requestSentence(1, payload).code == 'prison_integration_disabled', 'integracao desabilitada foi usada')
 MZPoliceConfig.Prison.enabled = true
 expect(MZPolice.Prison.requestSentence(2, payload).code == 'capability_denied', 'ator sem capability foi aceito')
 expect(MZPolice.Prison.requestSentence(1, {
-  targetSource = 2, caseId = 'case:0001', ruleCode = 'custodial', requestId = 'request_sentence_02', durationSeconds = 1
+  targetSource = 2, caseId = 'case:0001', chargeId = 'charge:0001', requestId = 'request_sentence_02', durationSeconds = 1
 }).code == 'invalid_payload', 'duracao client-authoritative foi aceita')
 expect(MZPolice.Prison.requestSentence(1, {
-  targetSource = 3, caseId = 'case:0001', ruleCode = 'custodial', requestId = 'request_sentence_03'
+  targetSource = 3, caseId = 'case:0001', chargeId = 'charge:0001', requestId = 'request_sentence_03'
 }).code == 'custody_required', 'alvo sem custodia foi aceito')
 
 caseMode = 'missing'
@@ -68,6 +71,9 @@ expect(MZPolice.Prison.requestSentence(1, payload).code == 'sentence_charge_not_
 caseMode = 'valid'
 local started = MZPolice.Prison.requestSentence(1, payload)
 expect(started.ok == true and sentenceCalls == 1 and cleanupCalls == 1, 'sentenca valida falhou')
+expect(sentenceRequest.chargeId == 'charge:0001' and sentenceRequest.ruleCode == 'custodial'
+  and sentenceRequest.ruleName == 'Custodial' and sentenceRequest.sentenceSeconds == 120
+  and sentenceRequest.legalVersion == 'test-v1', 'sentenca nao derivou o snapshot canonico da acusacao P6')
 local read = MZPolice.Prison.getSentence(1, { citizenid = 'TARGET1' })
 expect(read.ok == true and read.sentence.status == 'active', 'consulta de sentenca falhou')
 local reduced = MZPolice.Prison.reduceSentence(1, {
@@ -80,4 +86,4 @@ local released = MZPolice.Prison.releasePrisoner(1, {
 expect(released.ok == true and released.sentence.status == 'released', 'soltura autorizada falhou')
 expect(audits == 3, 'auditoria policial incompleta')
 
-print('mz_police P7 prison harness: PASS cases=11')
+print('mz_police P7 prison harness: PASS cases=12')

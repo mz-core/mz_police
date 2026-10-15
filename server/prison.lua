@@ -64,16 +64,16 @@ local function operationId(decision, requestId, prefix)
 end
 
 function Prison.requestSentence(source, payload)
-  if not closed(payload, { targetSource = true, caseId = true, ruleCode = true, requestId = true }) then
+  if not closed(payload, { targetSource = true, caseId = true, chargeId = true, requestId = true }) then
     return { ok = false, code = 'invalid_payload' }
   end
   local decision, authError = authorize(source, MZPoliceConfig.Prison.sentenceCapability)
   if not decision then return { ok = false, code = authError } end
   local targetSource = tonumber(payload.targetSource)
-  local caseId, ruleCode = token(payload.caseId, 8, 160), token(payload.ruleCode, 2, 64)
+  local caseId, chargeId = token(payload.caseId, 8, 160), token(payload.chargeId, 8, 160)
   local operation = operationId(decision, payload.requestId, 'sentence')
   if not targetSource or targetSource <= 0 or targetSource == tonumber(source)
-    or not caseId or not ruleCode or not operation then return { ok = false, code = 'invalid_sentence_request' } end
+    or not caseId or not chargeId or not operation then return { ok = false, code = 'invalid_sentence_request' } end
   local custody = MZPolice.Custody.get(targetSource)
   if not custody or custody.cuffed ~= true or not custody.cuffedBy
     or tonumber(custody.cuffedBy.source) ~= tonumber(source) then return { ok = false, code = 'custody_required' } end
@@ -85,20 +85,29 @@ function Prison.requestSentence(source, payload)
   if not case then return { ok = false, code = 'case_not_found' } end
   local sentenceCharge
   for _, charge in ipairs(case.charges or {}) do
-    if tostring(charge.citizenid) == targetCitizenid and tostring(charge.rule_code) == ruleCode
+    if tostring(charge.public_id) == chargeId and tostring(charge.citizenid) == targetCitizenid
       and (tonumber(charge.sentence_seconds) or 0) > 0 then
       sentenceCharge = charge
       break
     end
   end
   if not sentenceCharge then return { ok = false, code = 'sentence_charge_not_found' } end
+  local ruleCode = token(sentenceCharge.rule_code, 2, 64)
+  local ruleName = trim(sentenceCharge.rule_name)
+  local legalVersion = trim(sentenceCharge.legal_version)
+  local sentenceSeconds = math.floor(tonumber(sentenceCharge.sentence_seconds) or 0)
+  if not ruleCode or ruleName == '' or #ruleName > 160 or legalVersion == '' or #legalVersion > 64
+    or sentenceSeconds <= 0 then
+    return { ok = false, code = 'sentence_charge_invalid' }
+  end
   local result, sentenceError = MZPolice.Bridge.requestSentence(source, targetSource, {
-    ruleCode = ruleCode, caseId = caseId, operationId = operation,
-    orgCode = decision.organization.code
+    chargeId = chargeId, ruleCode = ruleCode, ruleName = ruleName,
+    sentenceSeconds = sentenceSeconds, legalVersion = legalVersion,
+    caseId = caseId, operationId = operation, orgCode = decision.organization.code
   })
   MZPolice.Audit.prison('sentence_request', decision.identity, {
     targetCitizenid = targetCitizenid, orgCode = decision.organization.code,
-    caseId = caseId, operationId = operation,
+    caseId = caseId, chargeId = chargeId, ruleCode = ruleCode, operationId = operation,
     result = result and 'accepted' or 'denied', reason = sentenceError
   })
   if not result then return { ok = false, code = sentenceError } end

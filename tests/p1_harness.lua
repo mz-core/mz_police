@@ -15,7 +15,7 @@ expect(manifest:find("'mz_core'", 1, true), 'manifest does not depend on mz_core
 expect(manifest:find("'mz_org'", 1, true), 'manifest does not depend on mz_org')
 expect(manifest:find("'server/p1_gate.lua'", 1, true), 'manifest does not load the P1 runtime gate')
 expect(manifest:find("'server/config.lua'", 1, true), 'shared police config is not loaded')
-expect(not manifest:find('ui_page', 1, true), 'police unexpectedly owns a NUI')
+expect(manifest:find("ui_page 'web/index.html'", 1, true), 'police MDT NUI is not loaded locally')
 expect(manifest:find("'server/policy.lua'", 1, true), 'P1 policy is not loaded')
 
 local policySource = readFile('server/policy.lua')

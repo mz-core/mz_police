@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#0d1319">
   <title>MZ Police MDT</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=police21">
 </head>
 <body>
+    <a class="skip-link" href="#content">Pular para o conteúdo</a>
   <main id="app" class="app" aria-hidden="true">
     <a class="skip-link" href="#content">Ir para o conteúdo</a>
     <section class="terminal" aria-label="Terminal de dados policiais">
@@ -19,7 +19,7 @@
         </header>
         <nav id="navigation" class="navigation" aria-label="Navegação principal"></nav>
         <footer class="sidebar-footer">
-          <span class="system-state"><i data-lucide="server"></i><span>CONTRATO P6</span></span>
+          <span class="system-state"><i data-lucide="server"></i><span>SISTEMA OPERACIONAL</span></span>
           <button id="close-button" class="icon-button" type="button" aria-label="Fechar MDT" title="Fechar MDT">
             <i data-lucide="log-out"></i>
           </button>
@@ -32,6 +32,7 @@
             <h1 id="section-title">Dashboard</h1>
           </div>
           <div class="topbar-actions">
+            <span id="sync-status" class="sync-status" role="status">Aguardando sincronização</span>
             <span id="preview-badge" class="preview-badge" hidden>PREVIEW SEM DADOS REAIS</span>
             <button id="refresh-button" class="icon-button" type="button" aria-label="Atualizar tela" title="Atualizar tela">
               <i data-lucide="refresh-cw"></i>
@@ -40,12 +41,14 @@
           </div>
         </header>
         <div id="loading-bar" class="loading-bar" hidden><span></span></div>
-        <section id="content" class="content" aria-live="polite"></section>
+        <section id="content" class="content" tabindex="-1"></section>
       </section>
     </section>
     <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
   </main>
+  <div id="police-panel-root" class="police-panel-root" aria-hidden="true"></div>
   <script src="lucide.min.js"></script>
-  <script src="app.js"></script>
+  <script src="tracker_math.js"></script>
+  <script src="app.js?v=police21"></script>
 </body>
 </html>

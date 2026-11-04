@@ -73,9 +73,15 @@ function Evidence.list(source, payload)
   if not decision then return { ok = false, code = authErr } end
   local items, listErr = MZPolice.Bridge.listPoliceEvidence(source, decision.organization.code, containerId)
   if not items then return { ok = false, code = listErr } end
+  local advanced = type(MZPoliceConfig.Advanced) == 'table' and MZPoliceConfig.Advanced or {}
+  local forensics = type(advanced.Forensics) == 'table' and advanced.Forensics or {}
+  local methods = type(forensics.methods) == 'table' and forensics.methods or {}
   return {
     ok = true, action = 'list', containerId = containerId, items = items,
-    associationEnabled = MZPoliceConfig.Evidence.occurrenceAssociationEnabled == true
+    associationEnabled = MZPoliceConfig.Evidence.occurrenceAssociationEnabled == true,
+    forensicsEnabled = advanced.enabled == true
+      and forensics.enabled == true
+      and methods.weapon_identity == true
   }
 end
 

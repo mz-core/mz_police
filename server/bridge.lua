@@ -7,6 +7,7 @@ local function dependencyError(resourceName)
   if resourceName == 'mz_org' then return 'organization_unavailable' end
   if resourceName == 'mz_inventory' then return 'inventory_unavailable' end
   if resourceName == 'mz_vehicles' then return 'vehicle_unavailable' end
+  if resourceName == 'mz_navigation' then return 'navigation_unavailable' end
   if resourceName == 'mz_economy' then return 'economy_unavailable' end
   return 'dependency_unavailable'
 end
@@ -76,6 +77,12 @@ function Bridge.getPlayerOrganizations(source)
   local organizations, callError = callExport('mz_org', 'GetPlayerOrgContext', source)
   if type(organizations) ~= 'table' then return nil, callError or 'organization_unavailable' end
   return organizations
+end
+
+function Bridge.getOrganizationByCode(orgCode)
+  local organization, callError = callExport('mz_org', 'GetOrgByCode', orgCode)
+  if type(organization) ~= 'table' then return nil, callError or 'organization_unavailable' end
+  return organization
 end
 
 function Bridge.canOrganization(source, orgCode, capability)
@@ -155,6 +162,79 @@ function Bridge.scanNearestVehicle(source, maximumDistance)
   return value
 end
 
+function Bridge.resolveOccupiedVehicle(source)
+  local ok, value = callExport('mz_vehicles', 'PoliceResolveOccupiedVehicle', source)
+  if ok ~= true then return nil, tostring(value or 'vehicle_context_failed') end
+  return value
+end
+
+function Bridge.getVehicleByPlate(plate)
+  local ok, vehicle = callExport('mz_vehicles', 'GetVehicleByPlate', plate)
+  if ok ~= true or type(vehicle) ~= 'table' then
+    return nil, tostring(vehicle or 'vehicle_not_found')
+  end
+  return vehicle
+end
+
+function Bridge.getNavigationMapConfig()
+  local config, callError = callExport('mz_navigation', 'GetMapConfig')
+  if type(config) ~= 'table' or type(config.bounds) ~= 'table'
+    or type(config.tiles) ~= 'table' or type(config.tiles.projection) ~= 'table' then
+    return nil, callError or 'navigation_map_unavailable'
+  end
+
+  local bounds, projection = config.bounds, config.tiles.projection
+  local map = {
+    minZoom = tonumber(config.minZoom),
+    maxZoom = tonumber(config.maxZoom),
+    defaultZoom = tonumber(config.defaultZoom),
+    schematic = config.schematic == true,
+    bounds = {
+      minX = tonumber(bounds.minX),
+      maxX = tonumber(bounds.maxX),
+      minY = tonumber(bounds.minY),
+      maxY = tonumber(bounds.maxY)
+    },
+    tiles = {
+      enabled = config.tiles.enabled == true,
+      available = config.tiles.available == true,
+      path = tostring(config.tiles.path or 'tiles'),
+      tileSize = tonumber(config.tiles.tileSize),
+      maxZoom = tonumber(config.tiles.maxZoom),
+      projection = {
+        scaleX = tonumber(projection.scaleX),
+        offsetX = tonumber(projection.offsetX),
+        scaleY = tonumber(projection.scaleY),
+        offsetY = tonumber(projection.offsetY)
+      }
+    }
+  }
+  for _, value in pairs(map.bounds) do
+    if not value then return nil, 'navigation_map_invalid' end
+  end
+  for _, value in pairs(map.tiles.projection) do
+    if not value then return nil, 'navigation_map_invalid' end
+  end
+  if not map.tiles.tileSize or map.tiles.tileSize <= 0
+    or map.tiles.projection.scaleX == 0 or map.tiles.projection.scaleY == 0
+    or map.bounds.maxX <= map.bounds.minX or map.bounds.maxY <= map.bounds.minY then
+    return nil, 'navigation_map_invalid'
+  end
+  return map
+end
+
+function Bridge.getNavigationMapSnapshot(source)
+  local map, mapError = Bridge.getNavigationMapConfig()
+  if not map then return nil, mapError end
+
+  local visible, visibleError = callExport('mz_navigation', 'ListVisiblePOIs', source)
+  if type(visible) ~= 'table' then return nil, visibleError or 'navigation_map_unavailable' end
+
+  map.layers = type(visible.layers) == 'table' and visible.layers or {}
+  map.pois = type(visible.pois) == 'table' and visible.pois or {}
+  return map
+end
+
 function Bridge.setVehicleFlag(source, scanId, flagCode, active, reference, operationId)
   local ok, value = callExport(
     'mz_vehicles', 'PoliceSetVehicleFlag', source, scanId, flagCode, active, reference, operationId
@@ -221,6 +301,12 @@ end
 
 function Bridge.requestSentence(actorSource, targetSource, request)
   local ok, value = callExport('mz_prison', 'RequestSentence', actorSource, targetSource, request)
+  if ok ~= true then return nil, tostring(value or 'sentence_request_failed') end
+  return value
+end
+
+function Bridge.requestSentenceFromCharges(actorSource, targetSource, request)
+  local ok, value = callExport('mz_prison', 'RequestSentenceFromCharges', actorSource, targetSource, request)
   if ok ~= true then return nil, tostring(value or 'sentence_request_failed') end
   return value
 end

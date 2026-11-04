@@ -73,14 +73,7 @@ local function organizationSnapshot(org, code)
   }
 end
 
-function Policy.authorize(source, capability, context)
-  source = tonumber(source)
-  if not source or source <= 0 then return result(false, 'invalid_source') end
-
-  capability = normalizeCapability(capability)
-  if not capability then return result(false, 'invalid_capability') end
-  if capability:match('^staff%.') then return result(false, 'staff_capability_forbidden') end
-
+local function authorizeOrganization(source, capability, context)
   context = normalizeContext(context)
   if not context then return result(false, 'invalid_context', { capability = capability }) end
   if context.orgCode and MZPoliceConfig.AuthorizedOrganizations[context.orgCode] ~= true then
@@ -114,9 +107,13 @@ function Policy.authorize(source, capability, context)
       and (not context.orgCode or context.orgCode == code)
 
     if selected and organizationActive(org) then
-      local allowed, permissionError = MZPolice.Bridge.canOrganization(source, code, capability)
-      if allowed == nil then
-        return deny(permissionError or 'organization_unavailable', source, capability, identity, code)
+      local allowed = true
+      if capability then
+        local permissionError
+        allowed, permissionError = MZPolice.Bridge.canOrganization(source, code, capability)
+        if allowed == nil then
+          return deny(permissionError or 'organization_unavailable', source, capability, identity, code)
+        end
       end
 
       if allowed ~= true then
@@ -139,6 +136,23 @@ function Policy.authorize(source, capability, context)
   if dutyDenied then return deny('duty_required', source, capability, identity, deniedOrgCode or context.orgCode) end
   if capabilityDenied then return deny('capability_denied', source, capability, identity, deniedOrgCode or context.orgCode) end
   return deny('police_organization_not_found', source, capability, identity, context.orgCode)
+end
+
+function Policy.authorizeDuty(source, context)
+  source = tonumber(source)
+  if not source or source <= 0 then return result(false, 'invalid_source') end
+  return authorizeOrganization(source, nil, context)
+end
+
+function Policy.authorize(source, capability, context)
+  source = tonumber(source)
+  if not source or source <= 0 then return result(false, 'invalid_source') end
+
+  capability = normalizeCapability(capability)
+  if not capability then return result(false, 'invalid_capability') end
+  if capability:match('^staff%.') then return result(false, 'staff_capability_forbidden') end
+
+  return authorizeOrganization(source, capability, context)
 end
 
 MZPolice.Policy = Policy

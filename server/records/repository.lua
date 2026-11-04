@@ -59,6 +59,44 @@ function Repository.createCase(data)
   } }, data.history)
 end
 
+-- Criacao atomica do caso simplificado: caso, oficial criador,
+-- pessoa envolvida e uma ou mais acusacoes na MESMA transacao. O historico
+-- unico fecha a operacao para replay. Nao existe writer de caso fora daqui.
+function Repository.createQuickArrest(data)
+  local statements = {
+    {
+      query = [[INSERT INTO mz_police_cases
+        (public_id, org_code, case_kind, title, summary, status, created_by_citizenid)
+        VALUES (?, ?, ?, ?, ?, 'open', ?)]],
+      parameters = {
+        data.publicId, data.orgCode, data.kind, data.title, data.summary, data.actorCitizenid
+      }
+    },
+    {
+      query = [[INSERT INTO mz_police_case_officers (case_public_id, citizenid, role)
+        VALUES (?, ?, 'creator')]],
+      parameters = { data.publicId, data.actorCitizenid }
+    },
+    {
+      query = [[INSERT INTO mz_police_case_people
+        (case_public_id, citizenid, role, added_by_citizenid) VALUES (?, ?, 'subject', ?)]],
+      parameters = { data.publicId, data.personCitizenid, data.actorCitizenid }
+    }
+  }
+  for _, charge in ipairs(data.charges or {}) do
+    statements[#statements + 1] = {
+      query = [[INSERT INTO mz_police_case_charges
+        (public_id, case_public_id, citizenid, rule_code, rule_name, fine_amount, sentence_seconds,
+         legal_version, added_by_citizenid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)]],
+      parameters = {
+        charge.publicId, data.publicId, data.personCitizenid, charge.ruleCode, charge.ruleName,
+        charge.fineAmount, charge.sentenceSeconds, charge.legalVersion, data.actorCitizenid
+      }
+    }
+  end
+  return transaction(statements, data.history)
+end
+
 function Repository.getCase(orgCode, publicId)
   local row = MySQL.single.await(
     'SELECT * FROM mz_police_cases WHERE org_code = ? AND public_id = ? LIMIT 1',
@@ -79,10 +117,35 @@ function Repository.getCase(orgCode, publicId)
   row.evidence = MySQL.query.await([[SELECT evidence_id, instance_uid, item, label, amount,
     linked_container_id, linked_evidence_revision, linked_by_citizenid, created_at
     FROM mz_police_case_evidence WHERE case_public_id = ? ORDER BY created_at ASC]], { publicId }) or {}
+  row.forensics = MySQL.query.await([[SELECT public_id, evidence_id, instance_uid, method, status,
+    result_json, requested_by_citizenid, created_at
+    FROM mz_police_forensic_results WHERE case_public_id = ? ORDER BY created_at DESC]], { publicId }) or {}
   row.history = MySQL.query.await([[SELECT action, actor_citizenid, details_json, created_at
     FROM mz_police_history WHERE org_code = ? AND entity_type = 'case' AND entity_id = ?
     ORDER BY id DESC LIMIT 100]], { orgCode, publicId }) or {}
   return row
+end
+
+function Repository.getForensicOperation(operationId)
+  return MySQL.single.await(
+    'SELECT * FROM mz_police_forensic_results WHERE operation_id = ? LIMIT 1', { operationId }
+  )
+end
+
+function Repository.createForensicResult(data)
+  return transaction({ {
+    query = [[INSERT INTO mz_police_forensic_results
+      (public_id, operation_id, org_code, case_public_id, evidence_id, instance_uid, method,
+       status, result_json, requested_by_citizenid)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?)]],
+    parameters = {
+      data.publicId, data.operationId, data.orgCode, data.caseId, data.evidenceId,
+      data.instanceUid, data.method, encode(data.result), data.actorCitizenid
+    }
+  }, {
+    query = 'UPDATE mz_police_cases SET revision = revision + 1 WHERE public_id = ? AND org_code = ?',
+    parameters = { data.caseId, data.orgCode }
+  } }, data.history)
 end
 
 function Repository.getCaseEvidence(caseId, evidenceId)
@@ -155,6 +218,10 @@ end
 
 function Repository.getCitationByOperation(operationId)
   return MySQL.single.await('SELECT * FROM mz_police_citations WHERE operation_id = ? LIMIT 1', { operationId })
+end
+
+function Repository.getCitationByPublicId(publicId)
+  return MySQL.single.await('SELECT * FROM mz_police_citations WHERE public_id = ? LIMIT 1', { publicId })
 end
 
 function Repository.createCitation(data)

@@ -98,6 +98,8 @@ local function configuredRule(section, orgCode, ruleCode)
   if name == '' or #name > 160 then return nil, 'legal_rule_invalid' end
   return {
     code = ruleCode, name = name,
+    description = trim(rule.description):sub(1, 400),
+    category = trim(rule.category):sub(1, 64),
     fineAmount = math.floor(tonumber(rule.fineAmount) or 0),
     sentenceSeconds = math.floor(tonumber(rule.sentenceSeconds) or 0)
   }
@@ -124,6 +126,24 @@ local function audit(action, decision, fields)
   MZPolice.Audit.records(action, decision.identity, fields)
 end
 
+local function nearby(leftSource, rightSource)
+  if type(GetPlayerRoutingBucket) == 'function'
+    and tonumber(GetPlayerRoutingBucket(leftSource)) ~= tonumber(GetPlayerRoutingBucket(rightSource)) then
+    return false, 'routing_bucket_mismatch'
+  end
+  if type(GetPlayerPed) ~= 'function' or type(GetEntityCoords) ~= 'function' then
+    return false, 'position_unavailable'
+  end
+  local leftPed, rightPed = GetPlayerPed(leftSource), GetPlayerPed(rightSource)
+  local left = leftPed and leftPed > 0 and GetEntityCoords(leftPed) or nil
+  local right = rightPed and rightPed > 0 and GetEntityCoords(rightPed) or nil
+  local lx, ly, lz = left and tonumber(left.x), left and tonumber(left.y), left and tonumber(left.z)
+  local rx, ry, rz = right and tonumber(right.x), right and tonumber(right.y), right and tonumber(right.z)
+  if not lx or not ly or not lz or not rx or not ry or not rz then return false, 'position_unavailable' end
+  local maximum = tonumber(MZPoliceConfig.Custody.maximumDistance) or 2.5
+  return (lx - rx) ^ 2 + (ly - ry) ^ 2 + (lz - rz) ^ 2 <= maximum ^ 2, 'target_too_far'
+end
+
 function Records.searchCitizens(source, payload)
   if not closed(payload, { query = true, page = true, pageSize = true }) then return { ok = false, code = 'invalid_payload' } end
   local decision, authError = authorize(source, MZPoliceConfig.Records.readCapability)
@@ -147,6 +167,94 @@ function Records.getCitizen(source, payload)
   local context = MZPolice.RecordsRepository.getCitizenContext(decision.organization.code, citizenid)
   audit('citizen_read', decision, { targetCitizenid = citizenid, result = 'read' })
   return { ok = true, citizen = character, police = context }
+end
+
+function Records.lookupVehicle(source, payload)
+  if not closed(payload, { plate = true }) then return { ok = false, code = 'invalid_payload' } end
+  local decision, authError = authorize(source, MZPoliceConfig.Records.readCapability)
+  if not decision then return { ok = false, code = authError } end
+  local plate = trim(payload.plate):upper():gsub('%s+', '')
+  if #plate < 2 or #plate > 16 or not plate:match('^[A-Z0-9-]+$') then
+    return { ok = false, code = 'invalid_vehicle_plate' }
+  end
+  local vehicle, vehicleError = MZPolice.Bridge.getVehicleByPlate(plate)
+  if not vehicle then
+    audit('vehicle_lookup', decision, { result = 'denied', reason = vehicleError })
+    return { ok = false, code = vehicleError }
+  end
+  local owner
+  if tostring(vehicle.owner_type or '') == 'player' and tostring(vehicle.owner_id or '') ~= '' then
+    owner = MZPolice.Bridge.getCharacterByCitizenId(tostring(vehicle.owner_id))
+  end
+  local flags = {}
+  local policeFlags = type(vehicle.metadata_json) == 'table' and vehicle.metadata_json.policeFlags or nil
+  for code, entry in pairs(type(policeFlags) == 'table' and policeFlags or {}) do
+    if type(entry) == 'table' and entry.active == true then
+      flags[#flags + 1] = { code = tostring(code):sub(1, 48), reference = tostring(entry.reference or ''):sub(1, 96) }
+    end
+  end
+  table.sort(flags, function(left, right) return left.code < right.code end)
+  audit('vehicle_lookup', decision, { entityId = tostring(vehicle.id or ''), result = 'read' })
+  return {
+    ok = true,
+    vehicle = {
+      plate = tostring(vehicle.plate or plate), model = tostring(vehicle.model or ''),
+      state = tostring(vehicle.state or ''), garage = tostring(vehicle.garage or ''),
+      ownerType = tostring(vehicle.owner_type or ''), ownerId = tostring(vehicle.owner_id or ''),
+      impounded = tostring(vehicle.state or '') == 'impounded', flags = flags,
+      owner = type(owner) == 'table' and {
+        citizenid = tostring(owner.citizenid or ''), firstname = tostring(owner.firstname or owner.firstName or ''),
+        lastname = tostring(owner.lastname or owner.lastName or '')
+      } or nil
+    }
+  }
+end
+
+-- Catalogo derivado de uma decisao de policy ja autorizada. Uso interno do
+-- owner policial (MDT e prisao rapida) para nao repetir policy/rate-limit.
+function Records.legalCatalog(decision)
+  if type(decision) ~= 'table' or type(decision.organization) ~= 'table'
+    or type(decision.organization.code) ~= 'string' then
+    return nil, 'invalid_decision'
+  end
+  local config = MZPoliceConfig.Records
+  if config.legalRulesEnabled ~= true then return nil, 'legal_rules_disabled' end
+  local jurisdiction = type(config.jurisdictions) == 'table'
+    and config.jurisdictions[decision.organization.code] or nil
+  if type(jurisdiction) ~= 'table' or jurisdiction.enabled ~= true then
+    return nil, 'jurisdiction_disabled'
+  end
+
+  local charges = {}
+  for code in pairs(type(config.charges) == 'table' and config.charges or {}) do
+    local rule = configuredRule('charges', decision.organization.code, code)
+    if rule and rule.fineAmount >= 0 and rule.sentenceSeconds >= 0 then charges[#charges + 1] = rule end
+  end
+  table.sort(charges, function(left, right) return left.code < right.code end)
+  return {
+    legalVersion = config.legalVersion,
+    organization = decision.organization.code,
+    charges = charges
+  }
+end
+
+function Records.getChargeRule(orgCode, ruleCode)
+  return configuredRule('charges', orgCode, ruleCode)
+end
+
+function Records.getLegalCatalog(source, payload)
+  if not closed(payload, {}) then return { ok = false, code = 'invalid_payload' } end
+  local decision, authError = authorize(source, MZPoliceConfig.Records.writeCapability)
+  if not decision then return { ok = false, code = authError } end
+  local catalog, catalogError = Records.legalCatalog(decision)
+  if not catalog then return { ok = false, code = catalogError } end
+  return {
+    ok = true,
+    code = 'legal_catalog_loaded',
+    legalVersion = catalog.legalVersion,
+    organization = catalog.organization,
+    charges = catalog.charges
+  }
 end
 
 function Records.upsertRecord(source, payload)
@@ -394,6 +502,141 @@ function Records.issueCitation(source, payload)
     audit('citation_issue', decision, { operationId = operationId, caseId = caseId, targetCitizenid = citizenid, ruleCode = rule.code, result = 'paid' })
     return { ok = true, code = 'citation_paid', citation = citation, receipt = receipt }
   end)
+end
+
+-- Multas de prisao.
+-- Cria SOMENTE citations pendentes, depois que o caso/charges ja foram
+-- confirmados. Nao chama mz_economy e nao debita nada automaticamente.
+function Records.issueArrestCitations(decision, caseId, charges)
+  if type(decision) ~= 'table' or type(decision.identity) ~= 'table'
+    or type(decision.organization) ~= 'table' then return nil, 'invalid_decision' end
+  local citationAllowed = MZPolice.Bridge.canOrganization(
+    decision.source, decision.organization.code, MZPoliceConfig.Records.citationCapability
+  )
+  if citationAllowed ~= true then return nil, 'citation_capability_required' end
+  caseId = token(caseId, 8, 160)
+  if not caseId then return nil, 'invalid_case_id' end
+  local created = {}
+  for _, charge in ipairs(charges or {}) do
+    local amount = math.floor(tonumber(charge.fineAmount) or 0)
+    local chargeId = token(charge.publicId, 8, 160)
+    local targetCitizenid = token(charge.citizenid, 2, 64)
+    local ruleCode = token(charge.ruleCode, 2, 64)
+    local ruleName = trim(charge.ruleName)
+    local legalVersion = trim(charge.legalVersion)
+    if amount > 0 then
+      if not chargeId or not targetCitizenid or not ruleCode or ruleName == '' or legalVersion == '' then
+        return nil, 'invalid_charge'
+      end
+      local publicId = 'citation:' .. chargeId
+      local operationId = 'charge_fine:' .. chargeId
+      local citation = MZPolice.RecordsRepository.getCitationByOperation(operationId)
+      if citation then
+        if tostring(citation.public_id) ~= publicId
+          or tostring(citation.case_public_id) ~= caseId
+          or tostring(citation.target_citizenid) ~= targetCitizenid
+          or tonumber(citation.amount) ~= amount
+          or tostring(citation.rule_code) ~= ruleCode then
+          return nil, 'request_id_conflict'
+        end
+      else
+        local requestFingerprint = fingerprint(caseId, chargeId, amount, ruleCode, legalVersion)
+        local saved = MZPolice.RecordsRepository.createCitation({
+          publicId = publicId, operationId = operationId, orgCode = decision.organization.code,
+          caseId = caseId, citizenid = targetCitizenid, ruleCode = ruleCode, ruleName = ruleName,
+          amount = amount, legalVersion = legalVersion, actorCitizenid = decision.identity.citizenid,
+          history = history(decision, operationId, 'citation', publicId, 'arrest_citation_created',
+            targetCitizenid, { chargeId = chargeId, caseId = caseId, amount = amount }, requestFingerprint)
+        })
+        if not saved then return nil, 'persistence_failed' end
+        citation = MZPolice.RecordsRepository.getCitationByOperation(operationId)
+      end
+      if citation then created[#created + 1] = citation end
+    end
+  end
+  return created
+end
+
+-- Pagamento de citation pelo proprio cidadao. O debito acontece somente por
+-- este contrato, com idempotencia do mz_economy. Nao ha debito na prisao.
+function Records.payCitation(source, payload)
+  if not closed(payload, { citationId = true, requestId = true }) then
+    return { ok = false, code = 'invalid_payload' }
+  end
+  if not MZPolice.RecordsPrepare.ready then return { ok = false, code = 'records_unavailable' } end
+  if not rateAllowed(source) then return { ok = false, code = 'rate_limited' } end
+  local citationId = token(payload.citationId, 8, 160)
+  local request = token(payload.requestId, 8, 40)
+  if not citationId or not request then return { ok = false, code = 'invalid_request' } end
+  local identity, identityError = MZPolice.Bridge.resolveIdentity(source)
+  if not identity then return { ok = false, code = identityError } end
+  local citation = MZPolice.RecordsRepository.getCitationByPublicId(citationId)
+  if not citation or tostring(citation.target_citizenid) ~= tostring(identity.citizenid) then
+    return { ok = false, code = 'citation_not_found' }
+  end
+  if tostring(citation.status) == 'paid' then
+    return { ok = true, code = 'citation_paid', citation = citation, replayed = true }
+  end
+  if tostring(citation.status) ~= 'pending' then return { ok = false, code = 'citation_not_payable' } end
+  local amount = math.floor(tonumber(citation.amount) or 0)
+  if amount <= 0 then return { ok = false, code = 'invalid_amount' } end
+  local organization, orgError = MZPolice.Bridge.getOrganization(citation.org_code)
+  if not organization then return { ok = false, code = orgError } end
+  local idempotencyKey = 'charge_fine_' .. fingerprint(citation.public_id)
+  if #idempotencyKey > 64 then return { ok = false, code = 'invalid_request_id' } end
+  local receipt, settlementError = MZPolice.Bridge.settleCitation(source, organization, amount, {
+    idempotencyKey = idempotencyKey, reference = citation.public_id,
+    targetCitizenid = identity.citizenid, actorCitizenid = identity.citizenid
+  })
+  if not receipt then
+    MZPolice.RecordsRepository.finishCitation(citation.public_id, 'pending', nil, settlementError)
+    return { ok = false, code = settlementError, citationId = citation.public_id }
+  end
+  if not MZPolice.RecordsRepository.finishCitation(citation.public_id, 'paid', receipt.receiptId, nil) then
+    return { ok = false, code = 'citation_reconciliation_pending', citationId = citation.public_id, receiptId = receipt.receiptId }
+  end
+  citation = MZPolice.RecordsRepository.getCitationByPublicId(citation.public_id)
+  if not citation then return { ok = false, code = 'persistence_failed', citationId = citationId } end
+  MZPolice.Audit.records('citation_paid', {
+    identity = identity, organization = { code = citation.org_code }
+  }, {
+    orgCode = citation.org_code, targetCitizenid = identity.citizenid,
+    result = 'paid', status = 'paid'
+  })
+  return { ok = true, code = 'citation_paid', citation = citation, receipt = receipt }
+end
+
+function Records.requestCitationPayment(source, payload)
+  if not closed(payload, { targetSource = true, citationId = true, requestId = true }) then
+    return { ok = false, code = 'invalid_payload' }
+  end
+  local decision, authError = authorize(source, MZPoliceConfig.Records.citationCapability)
+  if not decision then return { ok = false, code = authError } end
+  local targetSource = tonumber(payload.targetSource)
+  local citationId = token(payload.citationId, 8, 160)
+  local request = token(payload.requestId, 8, 40)
+  if not targetSource or targetSource <= 0 or targetSource == tonumber(source)
+    or not citationId or not request then return { ok = false, code = 'invalid_request' } end
+  local target, targetError = MZPolice.Bridge.resolveIdentity(targetSource)
+  if not target then return { ok = false, code = targetError } end
+  local close, proximityError = nearby(source, targetSource)
+  if not close then return { ok = false, code = proximityError } end
+  local citation = MZPolice.RecordsRepository.getCitationByPublicId(citationId)
+  if not citation or tostring(citation.target_citizenid) ~= tostring(target.citizenid)
+    or tostring(citation.org_code) ~= tostring(decision.organization.code) then
+    return { ok = false, code = 'citation_not_found' }
+  end
+  if tostring(citation.status) ~= 'pending' then return { ok = false, code = 'citation_not_payable' } end
+  local amount = math.floor(tonumber(citation.amount) or 0)
+  if amount <= 0 then return { ok = false, code = 'invalid_amount' } end
+  TriggerClientEvent('mz_police:client:citations:paymentRequest', targetSource, {
+    citationId = citationId, amount = amount, ruleName = tostring(citation.rule_name or ''),
+    requestedBy = decision.identity.citizenid
+  })
+  audit('citation_payment_requested', decision, {
+    targetCitizenid = target.citizenid, result = 'requested', status = 'pending'
+  })
+  return { ok = true, code = 'citation_payment_requested', citationId = citationId }
 end
 
 function Records.createWarrant(source, payload)

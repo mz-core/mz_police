@@ -7,8 +7,8 @@ local function requestId(action)
 end
 
 local function notify(message, kind)
-  if GetResourceState('mz_menu') == 'started' then
-    exports['mz_menu']:Notify(message, kind or 'inform')
+  if type(MZPoliceClient.Notify) == 'function' then
+    MZPoliceClient.Notify(message, kind, 'Fiscalização')
   else
     print(('[mz_police] %s'):format(tostring(message)))
   end
@@ -36,16 +36,25 @@ local function openTools()
     end
   end
   options[#options + 1] = {
-    title = 'Remover objeto viário próximo', icon = 'trash',
+    title = 'Remover objeto viário próximo', icon = 'trash', destructive = true,
     onSelect = function()
-      TriggerServerEvent('mz_police:server:road:removeNearest', { requestId = requestId('road-remove') })
+      MZPoliceClient.Panel.Open({
+        kind = 'confirm', title = 'Remover objeto viário?',
+        subtitle = 'O objeto operacional mais próximo será removido e a ação ficará registrada.',
+        confirmLabel = 'Remover'
+      }, function(confirmed)
+        if confirmed then
+          TriggerServerEvent('mz_police:server:road:removeNearest', { requestId = requestId('road-remove') })
+        end
+      end)
     end
   }
-  exports['mz_menu']:OpenContext({
-    id = 'mz_police:enforcement', title = 'Fiscalização', subtitle = 'Operações server-authoritative',
-    brand = 'MZ Police', headerIcon = 'shield', options = options
+  MZPoliceClient.Panel.Open({
+    kind = 'list', title = 'Fiscalização', subtitle = 'Operações validadas pelo servidor', options = options
   })
 end
+
+MZPoliceClient.OpenEnforcement = openTools
 
 local function openScan(response)
   lastScan = response.vehicle
@@ -76,15 +85,23 @@ local function openScan(response)
     options[#options + 1] = {
       title = ('Apreender: %s'):format(option.label), icon = 'truck', destructive = true,
       onSelect = function()
-        TriggerServerEvent('mz_police:server:enforcement:impound', {
-          scanId = vehicle.scanId, reasonCode = option.key, reference = '', requestId = requestId('impound')
-        })
+        MZPoliceClient.Panel.Open({
+          kind = 'confirm', title = 'Confirmar apreensão?',
+          subtitle = ('Motivo: %s. A operação será validada e registrada pelo servidor.'):format(option.label),
+          confirmLabel = 'Apreender'
+        }, function(confirmed)
+          if confirmed then
+            TriggerServerEvent('mz_police:server:enforcement:impound', {
+              scanId = vehicle.scanId, reasonCode = option.key, reference = '', requestId = requestId('impound')
+            })
+          end
+        end)
       end
     }
   end
-  exports['mz_menu']:OpenContext({
-    id = 'mz_police:enforcement:scan', title = response.mode == 'radar' and 'Radar' or 'ANPR',
-    subtitle = 'Leitura validada no servidor', brand = 'MZ Police', headerIcon = 'car', options = options
+  MZPoliceClient.Panel.Open({
+    kind = 'list', title = response.mode == 'radar' and 'Radar' or 'ANPR',
+    subtitle = 'Leitura validada no servidor', options = options
   })
 end
 
@@ -99,6 +116,5 @@ RegisterNetEvent('mz_police:client:enforcement:result', function(response)
 end)
 
 RegisterCommand('mz_police_tools', function()
-  if GetResourceState('mz_menu') ~= 'started' then notify('mz_menu indisponível.', 'error'); return end
   openTools()
 end, false)

@@ -22,11 +22,16 @@ local function applyCustodyState()
   SetPedCanPlayGestureAnims(ped, not custody.cuffed)
   if not custody.cuffed then
     detach()
-    ClearPedSecondaryTask(ped)
+    if type(IsEntityPlayingAnim) == 'function' and IsEntityPlayingAnim(ped, 'mp_arresting', 'idle', 3) then
+      pcall(StopAnimTask, ped, 'mp_arresting', 'idle', 1.0)
+    end
     return
   end
 
-  SetCurrentPedWeapon(ped, GetHashKey('WEAPON_UNARMED'), true)
+  local settings = type(MZPoliceConfig.Restraints) == 'table' and MZPoliceConfig.Restraints or {}
+  if settings.blockWeaponUse ~= false then
+    SetCurrentPedWeapon(ped, GetHashKey('WEAPON_UNARMED'), true)
+  end
   if custody.vehicleNetId and not IsPedInAnyVehicle(ped, false) and GetGameTimer() >= nextVehicleAttempt then
     nextVehicleAttempt = GetGameTimer() + 500
     local vehicle = NetworkGetEntityFromNetworkId(custody.vehicleNetId)
@@ -52,7 +57,10 @@ local function applyCustodyState()
   end
   if not IsPedInAnyVehicle(ped, false) and requestAnim('mp_arresting')
     and not IsEntityPlayingAnim(ped, 'mp_arresting', 'idle', 3) then
-    TaskPlayAnim(ped, 'mp_arresting', 'idle', 8.0, -8.0, -1, 49, 0.0, false, false, false)
+    local animationUntil = MZPoliceClient and tonumber(MZPoliceClient.RestraintAnimationUntil) or 0
+    if GetGameTimer() >= animationUntil then
+      TaskPlayAnim(ped, 'mp_arresting', 'idle', 8.0, -8.0, -1, 49, 0.0, false, false, false)
+    end
   end
 
   if custody.escortSource then
@@ -101,18 +109,40 @@ RegisterNetEvent('mz_police:client:custody:officerSync', function(state)
   }
 end)
 
-RegisterNetEvent('mz_police:client:custody:result', function(response)
-  if type(response) ~= 'table' or response.ok == true then return end
-  print(('[mz_police][custody] request denied: %s'):format(tostring(response.code or 'unknown')))
-end)
-
 CreateThread(function()
+  local nextInventoryClose = 0
   while true do
     if custody.cuffed then
       applyCustodyState()
-      DisablePlayerFiring(PlayerId(), true)
-      for _, control in ipairs({ 21, 22, 23, 24, 25, 37, 44, 45, 140, 141, 142, 143, 257, 263, 264 }) do
+      local settings = type(MZPoliceConfig.Restraints) == 'table' and MZPoliceConfig.Restraints or {}
+      local controls = { 21, 22, 44, 45 }
+      if settings.blockAttack ~= false then
+        for _, control in ipairs({ 23, 24, 25, 140, 141, 142, 143, 257, 263, 264 }) do
+          controls[#controls + 1] = control
+        end
+      end
+      if settings.blockWeaponUse ~= false then
+        controls[#controls + 1] = 37
+        if type(DisablePlayerFiring) == 'function' then DisablePlayerFiring(PlayerId(), true) end
+      end
+      if settings.restrictVehicleEntry ~= false then
+        controls[#controls + 1] = 75
+      end
+      if settings.allowWalk == false then
+        for _, control in ipairs({ 30, 31, 32, 33, 34, 35 }) do
+          controls[#controls + 1] = control
+        end
+      end
+      for _, control in ipairs(controls) do
         DisableControlAction(0, control, true)
+      end
+      if settings.inventoryWhileCuffed ~= true and GetGameTimer() >= nextInventoryClose then
+        nextInventoryClose = GetGameTimer() + 1000
+        if GetResourceState('mz_inventory') == 'started' then
+          pcall(function()
+            if exports['mz_inventory']:IsOpen() then exports['mz_inventory']:CloseView() end
+          end)
+        end
       end
       Wait(0)
     else

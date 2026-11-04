@@ -7,8 +7,8 @@ local function nextRequestId(action)
 end
 
 local function notify(message, kind)
-  if GetResourceState('mz_menu') == 'started' then
-    exports['mz_menu']:Notify(message, kind or 'inform')
+  if type(MZPoliceClient.Notify) == 'function' then
+    MZPoliceClient.Notify(message, kind, 'Arsenal policial')
   else
     print(('[mz_police] %s'):format(tostring(message)))
   end
@@ -76,12 +76,10 @@ local function openArmory(response)
   if #options == 0 then
     options[1] = { title = 'Nenhum equipamento disponível', readOnly = true, icon = 'info' }
   end
-  exports['mz_menu']:OpenContext({
-    id = ('mz_police:armory:%s'):format(response.station.id),
+  MZPoliceClient.Panel.Open({
+    kind = 'list',
     title = response.station.label,
     subtitle = 'Arsenal policial rastreado',
-    brand = 'MZ Police',
-    headerIcon = 'shield',
     options = options
   })
 end
@@ -93,10 +91,6 @@ RegisterNetEvent('mz_police:client:armory:result', function(response)
     return
   end
   if response.action == 'open' then
-    if GetResourceState('mz_menu') ~= 'started' then
-      notify('mz_menu indisponível.', 'error')
-      return
-    end
     openArmory(response)
     return
   end

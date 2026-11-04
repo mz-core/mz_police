@@ -168,6 +168,8 @@ function Search.seize(actorSource, payload)
   if not snapshot then return result(false, snapshotErr) end
   return result(true, 'item_seized', {
     searchId = searchId,
+    targetSource = session.target.source,
+    canSeize = session.canSeize,
     operationId = operationId,
     transfer = transfer,
     inventory = snapshot.inventory
@@ -187,6 +189,23 @@ function Search.close(actorSource, payload)
   if not session then return result(true, 'search_closed') end
   revoke(session)
   return result(true, 'search_closed')
+end
+
+function Search.snapshot(actorSource, searchId)
+  local session, err = currentSession(actorSource, searchId)
+  if not session then return false, err end
+  local snapshot, snapshotErr = MZPolice.Bridge.getGrantedInventory(actorSource, session.grantToken)
+  if not snapshot then return false, snapshotErr end
+  return true, snapshot.inventory
+end
+
+function Search.closeOwned(actorSource, searchId)
+  local actor = MZPolice.Bridge.resolveIdentity(actorSource)
+  if not actor then return false end
+  local session = sessions[sessionKey(actor, searchId)]
+  if not session then return false end
+  revoke(session)
+  return true
 end
 
 function Search.cleanupSource(source)
@@ -222,3 +241,40 @@ function Search.stop()
 end
 
 MZPolice.Search = Search
+
+-- Consulta interna do mz_inventory; nenhuma decisão de autorização vem do client.
+exports('AuthorizeThirdPartyInventoryRead', function(actorSource, targetSource, mode)
+  if GetInvokingResource() ~= 'mz_inventory' then return false, 'resource_not_authorized' end
+  actorSource, targetSource = tonumber(actorSource), tonumber(targetSource)
+  if not actorSource or not targetSource or actorSource <= 0 or targetSource <= 0
+    or actorSource == targetSource then return false, 'invalid_target' end
+
+  local custody = MZPolice.Custody.get(targetSource)
+  local cuffed = custody and custody.cuffed == true
+  local target, targetError = MZPolice.Bridge.resolveIdentity(targetSource)
+  if not target then return false, targetError or 'target_offline' end
+  local death, deathError = MZPolice.Bridge.getDeathState(targetSource)
+  if not death then return false, deathError or 'target_state_unavailable' end
+
+  if mode == 'police_search' or mode == 'police_seizure' then
+    local decision = MZPolice.Policy.authorize(actorSource, 'police.search')
+    if decision.ok ~= true then return false, decision.code end
+    if mode == 'police_seizure' then
+      local seizure = MZPolice.Policy.authorize(actorSource, 'police.seize')
+      if seizure.ok ~= true then return false, seizure.code end
+      if seizure.organization.code ~= decision.organization.code then return false, 'organization_changed' end
+    end
+    if not cuffed or not custody.target or custody.target.sessionId ~= target.sessionId then
+      return false, 'target_not_in_custody'
+    end
+    return true, { organization = decision.organization.code, condition = 'cuffed' }
+  end
+  if mode == 'civil_robbery' then
+    if cuffed and custody.target and custody.target.sessionId == target.sessionId then
+      return true, { condition = 'cuffed' }
+    end
+    if death.deathState == 'downed' then return true, { condition = 'downed' } end
+    return false, 'target_not_vulnerable'
+  end
+  return false, 'invalid_mode'
+end)

@@ -78,7 +78,8 @@ function Audit.custody(action, actor, target, fields)
       requestId = fields.requestId,
       revision = fields.revision,
       result = fields.result,
-      reason = fields.reason
+      reason = fields.reason,
+      newOfficerCitizenid = fields.newOfficerCitizenid
     }
   })
 end
@@ -179,7 +180,89 @@ function Audit.prison(action, actor, fields)
     context = {
       orgCode = fields.orgCode, caseId = fields.caseId, operationId = fields.operationId
     },
-    meta = { result = fields.result, reason = fields.reason }
+    meta = {
+      result = fields.result, reason = fields.reason,
+      ruleCode = fields.ruleCode, chargeCount = fields.chargeCount
+    }
+  })
+end
+
+function Audit.arrest(action, actor, fields)
+  fields = type(fields) == 'table' and fields or {}
+  return MZPolice.Bridge.createDetailedLog(('police.arrest.%s'):format(tostring(action)), {
+    actor = actor and {
+      type = 'character', id = actor.citizenid, citizenid = actor.citizenid
+    } or { type = 'system', id = 'mz_police' },
+    target = fields.targetCitizenid and {
+      type = 'character', id = fields.targetCitizenid, citizenid = fields.targetCitizenid
+    } or nil,
+    context = {
+      orgCode = fields.orgCode,
+      caseId = fields.caseId,
+      operationId = fields.operationId,
+      custodyRevision = fields.custodyRevision
+    },
+    meta = {
+      result = fields.result,
+      reason = fields.reason,
+      ruleCodes = fields.ruleCodes,
+      sentenceSeconds = fields.sentenceSeconds,
+      fineAmount = fields.fineAmount,
+      legalVersion = fields.legalVersion,
+      chargeCount = fields.chargeCount
+    }
+  })
+end
+
+function Audit.advanced(action, actor, fields)
+  fields = type(fields) == 'table' and fields or {}
+  return MZPolice.Bridge.createDetailedLog(('police.advanced.%s'):format(tostring(action)), {
+    actor = { type = 'character', id = actor.citizenid, citizenid = actor.citizenid },
+    target = fields.instanceUid and { type = 'item', id = fields.instanceUid }
+      or fields.plate and { type = 'vehicle', id = fields.plate } or nil,
+    context = {
+      orgCode = fields.orgCode,
+      operationId = fields.operationId,
+      caseId = fields.caseId,
+      cameraId = fields.cameraId
+    },
+    meta = {
+      active = fields.active,
+      method = fields.method,
+      result = fields.result,
+      reason = fields.reason
+    }
+  })
+end
+
+function Audit.restraint(action, actor, target, fields)
+  fields = type(fields) == 'table' and fields or {}
+  local actorCitizenid = actor and tostring(actor.citizenid or '') or ''
+  return MZPolice.Bridge.createDetailedLog(('police.restraint.%s'):format(tostring(action)), {
+    actor = actorCitizenid ~= '' and {
+      type = 'character', id = actorCitizenid, citizenid = actorCitizenid
+    } or { type = 'system', id = 'mz_police' },
+    target = target and target.citizenid and {
+      type = 'character', id = tostring(target.citizenid), citizenid = tostring(target.citizenid)
+    } or nil,
+    context = {
+      orgCode = fields.orgCode,
+      capability = fields.capability,
+      operationId = fields.operationId,
+      restraintId = fields.restraintId
+    },
+    meta = {
+      origin = fields.origin,
+      channel = fields.channel,
+      command = fields.command,
+      result = fields.result,
+      reason = fields.reason,
+      instanceUid = fields.instanceUid,
+      serial = fields.serial,
+      keyInstanceUid = fields.keyInstanceUid,
+      staffOverride = fields.staffOverride == true,
+      revision = fields.revision
+    }
   })
 end
 

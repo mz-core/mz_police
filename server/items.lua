@@ -1,12 +1,12 @@
--- Uso do item handcuffs por qualquer jogador.
+-- Uso de algemas e chaves por qualquer jogador.
 -- O item so abre o fluxo; a validacao real (item/UID, alvo, distancia,
 -- bucket, estado e custodia) continua em MZPolice.Restraints.
 
 MZPolice = MZPolice or {}
 
-local function notifyResult(source, targetSource, code, ok, pending)
+local function notifyResult(source, targetSource, action, code, ok, pending)
   TriggerClientEvent('mz_police:client:restraints:result', source, {
-    action = 'cuff',
+    action = action,
     targetSource = targetSource,
     response = {
       ok = ok == true,
@@ -53,21 +53,21 @@ local function nearestPlayer(source)
   return selected
 end
 
-local function useHandcuffs(payload)
+local function useRestraintItem(payload, action)
   payload = type(payload) == 'table' and payload or {}
   local source = tonumber(payload.source)
   if not source or source <= 0 then return { ok = false, error = 'invalid_source' } end
 
   local targetSource, selectionError = nearestPlayer(source)
   if not targetSource then
-    notifyResult(source, nil, selectionError or 'target_too_far', false, false)
+    notifyResult(source, nil, action, selectionError or 'target_too_far', false, false)
     return { ok = false, error = selectionError or 'target_too_far' }
   end
 
-  local requestId = ('item_cuff:%s:%s:%s'):format(
-    tostring(source), tostring(targetSource), tostring(GetGameTimer()))
+  local requestId = ('item_%s:%s:%s:%s'):format(
+    action, tostring(source), tostring(targetSource), tostring(GetGameTimer()))
   local response = MZPolice.Restraints.request(source, {
-    action = 'cuff',
+    action = action,
     targetSource = targetSource,
     requestId = requestId,
     expectedRevision = MZPolice.Restraints.revision(targetSource) or 0,
@@ -76,11 +76,11 @@ local function useHandcuffs(payload)
 
   if type(response) ~= 'table' or response.ok ~= true then
     local code = type(response) == 'table' and tostring(response.code or 'cuff_failed') or 'cuff_failed'
-    notifyResult(source, targetSource, code, false, false)
+    notifyResult(source, targetSource, action, code, false, false)
     return { ok = false, error = code }
   end
 
-  notifyResult(source, targetSource, 'applying', true, true)
+  notifyResult(source, targetSource, action, response.code, true, response.pending)
   return {
     ok = true,
     consume = false,
@@ -91,7 +91,13 @@ end
 local function registerItemHandler()
   if GetResourceState('mz_inventory') ~= 'started' then return false end
   local ok, result = pcall(function()
-    return exports['mz_inventory']:RegisterItemUseHandler('handcuffs', useHandcuffs)
+    local cuffs = exports['mz_inventory']:RegisterItemUseHandler('handcuffs', function(payload)
+      return useRestraintItem(payload, 'cuff')
+    end)
+    local key = exports['mz_inventory']:RegisterItemUseHandler('handcuff_key', function(payload)
+      return useRestraintItem(payload, 'uncuff')
+    end)
+    return cuffs == true and key == true
   end)
   if not ok or result ~= true then
     print(('[mz_police][items] handcuffs use handler registration failed: %s'):format(

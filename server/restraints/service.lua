@@ -1200,6 +1200,8 @@ function Restraints.request(actorSource, payload, channel)
   else
     validated, validateError = validateUncuff(actorSource, request.targetSource, actorInfo.mode)
     if not validated then return result(false, validateError) end
+    if actorInfo.mode == 'physical' and request.preferredUid
+      and validated.key.uid ~= request.preferredUid then return result(false, 'key_mismatch') end
   end
 
   local entry = {

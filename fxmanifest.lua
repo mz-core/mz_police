@@ -4,7 +4,7 @@ game 'gta5'
 name 'mz_police'
 author 'Mazus / MZ Framework'
 description 'Operacoes policiais server-authoritative do MZ Framework'
-version '0.11.0'
+version '0.11.2'
 
 lua54 'yes'
 
